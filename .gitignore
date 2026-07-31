@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+
+# Environment variables (NEVER commit secrets)
+.env
+
+# Test artifacts
+test-*.db
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+.cursor
+
+# TypeScript build info
+*.tsbuildinfo

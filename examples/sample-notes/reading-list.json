@@ -1,0 +1,37 @@
+[
+  {
+    "title": "Dynamo: Amazon's Highly Available Key-value Store",
+    "url": "https://www.allthingsdistributed.com/files/p109-decandia.pdf",
+    "tags": ["distributed-systems", "key-value-store", "consistency"],
+    "added": "2026-01-15",
+    "summary": "Introduces a fully distributed key-value store with tunable consistency, consistent hashing, and vector clocks."
+  },
+  {
+    "title": "Attention Is All You Need",
+    "url": "https://arxiv.org/abs/1706.03762",
+    "tags": ["machine-learning", "transformers", "attention"],
+    "added": "2026-02-20",
+    "summary": "The foundational Transformer paper. Replaced recurrence with self-attention for sequence modeling."
+  },
+  {
+    "title": "Raft: In Search of an Understandable Consensus Algorithm",
+    "url": "https://raft.github.io/raft.pdf",
+    "tags": ["distributed-systems", "consensus", "raft"],
+    "added": "2026-03-10",
+    "summary": "Presents Raft, a consensus algorithm designed for understandability, equivalent to Paxos in fault-tolerance."
+  },
+  {
+    "title": "Deep Residual Learning for Image Recognition",
+    "url": "https://arxiv.org/abs/1512.03385",
+    "tags": ["machine-learning", "cnn", "resnet"],
+    "added": "2026-04-05",
+    "summary": "Introduces residual connections (skip connections) to train very deep networks effectively."
+  },
+  {
+    "title": "The CAP FAQ",
+    "url": "https://github.com/henryr/cap-faq",
+    "tags": ["distributed-systems", "cap-theorem"],
+    "added": "2026-05-12",
+    "summary": "A concise FAQ explaining the CAP theorem, its implications, and common misconceptions."
+  }
+]

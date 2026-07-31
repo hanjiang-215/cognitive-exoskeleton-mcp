@@ -1,0 +1,44 @@
+{
+  "name": "cognitive-exoskeleton-mcp",
+  "version": "1.0.0",
+  "description": "Personal Cognitive Exoskeleton - MCP Server powered by knowledge graph + LLM reasoning",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "cognitive-exoskeleton-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "keywords": [
+    "mcp",
+    "knowledge-graph",
+    "cognitive-exoskeleton",
+    "second-brain",
+    "llm"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "sql.js": "^1.12.0",
+    "gray-matter": "^4.0.3",
+    "openai": "^4.86.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+
+    "@types/node": "^22.15.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
