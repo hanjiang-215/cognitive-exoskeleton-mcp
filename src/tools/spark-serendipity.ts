@@ -6,7 +6,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import crypto from "node:crypto";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { getAllDomains, getSampleNodesByDomain } from "../graph/store.js";
 import { SERENDIPITY_SYSTEM_PROMPT, buildSerendipityPrompt } from "../prompts/associate.js";
@@ -14,7 +14,7 @@ import { saveDatabase as saveDb } from "../graph/schema.js";
 
 export function registerSparkSerendipityTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
   dbPath: string,
 ): void {

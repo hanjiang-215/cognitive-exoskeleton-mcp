@@ -5,7 +5,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { searchNodeIds, getSubgraph1Hop } from "../graph/queries.js";
 import { getNodeById, getEdgesForNode } from "../graph/store.js";
@@ -13,7 +13,7 @@ import type { GraphNode } from "../graph/types.js";
 
 export function registerRecallContextTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
 ): void {
   server.tool(

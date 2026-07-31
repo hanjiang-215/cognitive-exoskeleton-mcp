@@ -5,14 +5,14 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { getNodeByName, getEvolutionLog, getEdgesForNode, getNodeById } from "../graph/store.js";
 import { EVOLUTION_SYSTEM_PROMPT, buildEvolutionPrompt } from "../prompts/analyze.js";
 
 export function registerTraceEvolutionTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
 ): void {
   server.tool(

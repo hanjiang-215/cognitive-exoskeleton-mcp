@@ -14,7 +14,7 @@ describe("Config – loadConfig", () => {
 
   afterEach(() => {
     // Restore env after each test
-    for (const key of ["LLM_API_BASE", "LLM_API_KEY", "LLM_MODEL_NAME", "COGNITIVE_DB_PATH"]) {
+    for (const key of ["LLM_API_BASE", "LLM_API_KEY", "LLM_MODEL_NAME", "COGNITIVE_DB_PATH", "LLM_MODE"]) {
       if (ORIG_ENV[key] === undefined) delete process.env[key];
       else process.env[key] = ORIG_ENV[key];
     }
@@ -25,13 +25,15 @@ describe("Config – loadConfig", () => {
     delete process.env.LLM_API_KEY;
     delete process.env.LLM_MODEL_NAME;
     delete process.env.COGNITIVE_DB_PATH;
+    delete process.env.LLM_MODE;
 
     const { loadConfig } = await import("../src/config.js");
     const cfg = loadConfig();
     assert.equal(cfg.llmApiBase, "http://127.0.0.1:8000/v1");
     assert.equal(cfg.llmApiKey, "EMPTY");
-    assert.equal(cfg.llmModelName, "hy3");
+    assert.equal(cfg.llmModelName, "gpt-4o-mini");
     assert.equal(cfg.cognitiveDbPath, "./cognitive.db");
+    assert.equal(cfg.llmMode, "sampling"); // no API key → auto sampling
   });
 
   it("reads LLM_API_BASE from env", async () => {
@@ -62,15 +64,16 @@ describe("Config – loadConfig", () => {
     assert.equal(cfg.cognitiveDbPath, "/tmp/my-graph.db");
   });
 
-  it("Config interface has exactly 4 fields", async () => {
+  it("Config interface has exactly 5 fields", async () => {
     process.env.LLM_API_BASE = "http://localhost/v1";
     process.env.LLM_API_KEY = "test";
     process.env.LLM_MODEL_NAME = "m";
     process.env.COGNITIVE_DB_PATH = "./x.db";
+    delete process.env.LLM_MODE;
     const { loadConfig } = await import("../src/config.js");
     const cfg = loadConfig();
     const keys = Object.keys(cfg).sort();
-    assert.deepEqual(keys, ["cognitiveDbPath", "llmApiBase", "llmApiKey", "llmModelName"]);
+    assert.deepEqual(keys, ["cognitiveDbPath", "llmApiBase", "llmApiKey", "llmMode", "llmModelName"]);
   });
 });
 

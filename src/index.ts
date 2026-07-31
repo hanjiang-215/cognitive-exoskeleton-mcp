@@ -6,7 +6,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig } from "./config.js";
-import { LLMClient } from "./llm/client.js";
+import { createLLMClient } from "./llm/client.js";
 import { initDatabase } from "./graph/schema.js";
 
 // Tool registration imports
@@ -30,7 +30,10 @@ const server = new McpServer({
 
 async function main() {
   const config = loadConfig();
-  const llm = new LLMClient(config);
+
+  // 创建 LLM 客户端：sampling 模式下复用 MCP 客户端（Cursor/WorkBuddy）的模型
+  const llm = createLLMClient(config, server);
+
   const db = await initDatabase(config.cognitiveDbPath);
 
   // Register all 8 tools
@@ -45,7 +48,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[cognitive-exoskeleton] MCP Server started — 8 tools registered (stdio)");
+  console.error(`[cognitive-exoskeleton] MCP Server started — 8 tools registered (stdio, llm=${config.llmMode})`);
 }
 
 main().catch((err) => {

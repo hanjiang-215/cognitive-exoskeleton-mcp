@@ -13,7 +13,7 @@
 Cognitive Exoskeleton 不是普通的搜索工具。它从你的笔记中构建动态知识图谱，然后利用 LLM 推理能力**主动发现知识盲点、寻找隐藏的跨领域关联、追踪你对某个概念的理解如何随时间演变，并通过碰撞不同领域的想法来激发创造性灵感**。
 
 - 所有数据完全本地存储（SQLite），隐私安全
-- 模型无关：支持 Hy3、OpenAI、Ollama、vLLM 等任意 OpenAI 兼容 API
+- 零配置：默认通过 MCP Sampling 复用客户端的 LLM，也可自带 API（Hy3、OpenAI、Ollama、vLLM 等）
 - 即插即用：兼容 Cursor、CodeBuddy、WorkBuddy、Cline 等主流 MCP 客户端
 
 ### 功能特性
@@ -35,7 +35,7 @@ Cognitive Exoskeleton 不是普通的搜索工具。它从你的笔记中构建�
 
 ### 快速开始
 
-**环境要求**：Node.js >= 18 + 任意 OpenAI 兼容 LLM API 端点
+**环境要求**：Node.js >= 18
 
 ```bash
 # 克隆并安装
@@ -43,7 +43,16 @@ git clone https://github.com/Tencent-Hunyuan/Hy3.git
 cd Hy3/rhinobird2026/cognitive-exoskeleton-mcp
 npm install && npm run build
 
-# 启动
+# 启动（零配置 — 自动复用 Cursor/WorkBuddy 的模型）
+node dist/index.js
+```
+
+> **零配置模式**：默认情况下，MCP Server 通过 MCP Sampling 协议复用客户端（Cursor、WorkBuddy 等）已配置的 LLM 模型，无需单独配置 API key。
+
+如需使用独立的 LLM API，可配置环境变量切换到 **Direct 模式**：
+
+```bash
+export LLM_MODE=direct
 export LLM_API_BASE="http://127.0.0.1:8000/v1"
 export LLM_API_KEY="EMPTY"
 export LLM_MODEL_NAME="hy3"
@@ -53,15 +62,20 @@ node dist/index.js
 ### 环境变量
 
 
-| 变量                  | 说明                    | 默认值                        |
-| ------------------- | --------------------- | -------------------------- |
-| `LLM_API_BASE`      | OpenAI 兼容 API 的基础 URL | `http://127.0.0.1:8000/v1` |
-| `LLM_API_KEY`       | LLM 提供商的 API Key      | `EMPTY`                    |
-| `LLM_MODEL_NAME`    | 使用的模型名称               | `hy3`                      |
-| `COGNITIVE_DB_PATH` | SQLite 数据库文件路径        | `./cognitive.db`           |
+| 变量                  | 说明                                        | 默认值            |
+| ------------------- | ----------------------------------------- | -------------- |
+| `LLM_MODE`          | LLM 调用模式：`sampling`（委托客户端）或 `direct`（直连 API） | 自动检测*          |
+| `LLM_API_BASE`      | (Direct 模式) OpenAI 兼容 API 的基础 URL          | `http://127.0.0.1:8000/v1` |
+| `LLM_API_KEY`       | (Direct 模式) LLM 提供商的 API Key                | `EMPTY`        |
+| `LLM_MODEL_NAME`    | (Direct 模式) 使用的模型名称                         | `gpt-4o-mini`  |
+| `COGNITIVE_DB_PATH` | SQLite 数据库文件路径                              | `./cognitive.db` |
+
+> \* 自动检测逻辑：如果 `LLM_API_BASE` 和 `LLM_API_KEY` 都已配置（且 key 不是 `EMPTY`），则使用 `direct` 模式；否则使用 `sampling` 模式。
 
 
-### 多模型支持
+### 多模型支持（Direct 模式）
+
+以下配置仅在 `LLM_MODE=direct` 时需要：
 
 
 | 模型提供商        | `LLM_API_BASE`                       | `LLM_MODEL_NAME` |
@@ -75,7 +89,7 @@ node dist/index.js
 
 ### MCP 客户端配置
 
-**Cursor** — `.cursor/mcp.json`：
+**Cursor** — `.cursor/mcp.json`（零配置，复用 Cursor 的模型）：
 
 ```json
 {
@@ -84,9 +98,7 @@ node dist/index.js
       "command": "node",
       "args": ["<项目路径>/dist/index.js"],
       "env": {
-        "LLM_API_BASE": "http://127.0.0.1:8000/v1",
-        "LLM_API_KEY": "EMPTY",
-        "LLM_MODEL_NAME": "hy3"
+        "LLM_MODE": "sampling"
       }
     }
   }
@@ -99,10 +111,10 @@ node dist/index.js
 codebuddy mcp add cognitive-exoskeleton \
   --command "node" \
   --arg "<项目路径>/dist/index.js" \
-  --env LLM_API_BASE=http://127.0.0.1:8000/v1 \
-  --env LLM_API_KEY=EMPTY \
-  --env LLM_MODEL_NAME=hy3
+  --env LLM_MODE=sampling
 ```
+
+> **Sampling 模式说明**：MCP Server 通过 MCP Sampling 协议将 LLM 调用委托给客户端。客户端会使用自己已配置的模型（如 Cursor 配置的 Claude/GPT、WorkBuddy 配置的模型等），用户无需为 MCP Server 单独申请或配置 API key。每次 LLM 调用时客户端会通知用户。
 
 ### 使用示例
 
@@ -161,6 +173,7 @@ codebuddy mcp add cognitive-exoskeleton \
 ```
 MCP 客户端 (Cursor / CodeBuddy / Cline)
         │ stdio (JSON-RPC)
+        │ + sampling/createMessage (Sampling 模式)
         ▼
 ┌──────────────────────────────────────┐
 │  Cognitive Exoskeleton MCP Server   │
@@ -169,7 +182,7 @@ MCP 客户端 (Cursor / CodeBuddy / Cline)
 │         │                            │
 │  知识图谱引擎 (SQLite + 图算法)       │
 │         │                            │
-│  LLM 客户端 (模型无关, OpenAI 兼容)   │
+│  LLM 双模式: Sampling / Direct       │
 └──────────────────────────────────────┘
 ```
 
@@ -194,7 +207,7 @@ serendipity_log (id, node_a, node_b, hypothesis, user_feedback, created_at)
 Cognitive Exoskeleton is not just a search tool. It builds a dynamic knowledge graph from your notes, then uses LLM reasoning to **proactively discover blindspots, find hidden cross-domain connections, trace how your understanding evolves over time, and spark creative inspiration** by colliding ideas from different fields.
 
 - All data stays local (SQLite) — privacy-first
-- Model-agnostic: works with any OpenAI-compatible LLM API (Hy3, OpenAI, Ollama, vLLM, etc.)
+- Zero-config: uses your MCP client's LLM via Sampling protocol — or bring your own API (Hy3, OpenAI, Ollama, vLLM, etc.)
 - Plug-and-play: compatible with Cursor, CodeBuddy, WorkBuddy, Cline, and other MCP clients
 
 ### Features
@@ -216,13 +229,23 @@ Cognitive Exoskeleton is not just a search tool. It builds a dynamic knowledge g
 
 ### Quick Start
 
-**Prerequisites**: Node.js >= 18 + any OpenAI-compatible LLM API endpoint
+**Prerequisites**: Node.js >= 18
 
 ```bash
 git clone https://github.com/Tencent-Hunyuan/Hy3.git
 cd Hy3/rhinobird2026/cognitive-exoskeleton-mcp
 npm install && npm run build
 
+# Zero-config — automatically reuses your MCP client's LLM via Sampling
+node dist/index.js
+```
+
+> **Zero-config mode**: By default, the MCP Server delegates LLM calls to the client (Cursor, WorkBuddy, etc.) via MCP Sampling protocol. No separate API key needed.
+
+For a standalone LLM API, switch to **Direct mode**:
+
+```bash
+export LLM_MODE=direct
 export LLM_API_BASE="http://127.0.0.1:8000/v1"
 export LLM_API_KEY="EMPTY"
 export LLM_MODEL_NAME="hy3"
@@ -232,15 +255,20 @@ node dist/index.js
 ### Environment Variables
 
 
-| Variable            | Description                    | Default                    |
-| ------------------- | ------------------------------ | -------------------------- |
-| `LLM_API_BASE`      | OpenAI-compatible API base URL | `http://127.0.0.1:8000/v1` |
-| `LLM_API_KEY`       | API key for the LLM provider   | `EMPTY`                    |
-| `LLM_MODEL_NAME`    | Model name to use              | `hy3`                      |
-| `COGNITIVE_DB_PATH` | SQLite database file path      | `./cognitive.db`           |
+| Variable            | Description                                                   | Default                    |
+| ------------------- | ------------------------------------------------------------- | -------------------------- |
+| `LLM_MODE`          | LLM mode: `sampling` (delegate to client) or `direct` (API)   | auto-detected*             |
+| `LLM_API_BASE`      | (Direct) OpenAI-compatible API base URL                        | `http://127.0.0.1:8000/v1` |
+| `LLM_API_KEY`       | (Direct) API key for the LLM provider                          | `EMPTY`                    |
+| `LLM_MODEL_NAME`    | (Direct) Model name to use                                     | `gpt-4o-mini`              |
+| `COGNITIVE_DB_PATH` | SQLite database file path                                      | `./cognitive.db`           |
+
+> \* Auto-detection: if `LLM_API_BASE` and `LLM_API_KEY` are both set (and key is not `EMPTY`), uses `direct`; otherwise uses `sampling`.
 
 
-### Multi-Model Support
+### Multi-Model Support (Direct mode only)
+
+Only needed when `LLM_MODE=direct`:
 
 
 | Provider           | `LLM_API_BASE`                       | `LLM_MODEL_NAME` |
@@ -254,7 +282,7 @@ node dist/index.js
 
 ### MCP Client Setup
 
-**Cursor** — `.cursor/mcp.json`:
+**Cursor** — `.cursor/mcp.json` (zero-config, reuses Cursor's model):
 
 ```json
 {
@@ -263,9 +291,7 @@ node dist/index.js
       "command": "node",
       "args": ["<project-path>/dist/index.js"],
       "env": {
-        "LLM_API_BASE": "http://127.0.0.1:8000/v1",
-        "LLM_API_KEY": "EMPTY",
-        "LLM_MODEL_NAME": "hy3"
+        "LLM_MODE": "sampling"
       }
     }
   }
@@ -278,10 +304,10 @@ node dist/index.js
 codebuddy mcp add cognitive-exoskeleton \
   --command "node" \
   --arg "<project-path>/dist/index.js" \
-  --env LLM_API_BASE=http://127.0.0.1:8000/v1 \
-  --env LLM_API_KEY=EMPTY \
-  --env LLM_MODEL_NAME=hy3
+  --env LLM_MODE=sampling
 ```
+
+> **Sampling mode**: The MCP Server delegates LLM calls to the client via the MCP Sampling protocol. The client uses its own configured model (e.g. Cursor's Claude/GPT). No separate API key needed.
 
 ### Usage Examples
 
@@ -412,4 +438,10 @@ Apache-2.0
 > 本项目为 2026 犀牛鸟开源人才培养活动参赛项目，基于腾讯混元 Hy3 模型构建。
 >
 > This project was developed for the 2026 Rhinobird Open Source Talent Program, built on Tencent Hunyuan Hy3.
+
+---
+
+Copyright (c) 2026 hanjiang-215. All rights reserved.
+
+本项目由 hanjiang-215 制作。
 

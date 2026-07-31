@@ -19,9 +19,18 @@ npm install && npm run build
 
 构建成功后，`dist/index.js` 即为可运行的 MCP Server 单文件。
 
-### 1.2 确认 LLM API 可用
+### 1.2 确认 LLM 调用模式
 
-你需要一个 OpenAI 兼容的 LLM API 端点。以下任选其一：
+Cognitive Exoskeleton 支持两种 LLM 调用模式：
+
+| 模式 | 说明 | 需要配置 API Key |
+|---|---|---|
+| **Sampling**（推荐） | 复用 MCP 客户端（Cursor/WorkBuddy）已配置的模型 | 不需要 |
+| **Direct** | 自行连接外部 OpenAI 兼容 API | 需要 |
+
+**Sampling 模式（零配置）**：无需任何额外配置，MCP Server 会自动通过 MCP 协议委托客户端调用 LLM。客户端使用自己已配置的模型（Cursor 的 Claude/GPT、WorkBuddy 的模型等）。
+
+**Direct 模式**：需要一个 OpenAI 兼容的 LLM API 端点。以下任选其一：
 
 | 方案 | API 地址 | 模型名 | API Key |
 |---|---|---|---|
@@ -30,25 +39,28 @@ npm install && npm run build
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o` | `sk-...` |
 | Ollama 本地 | `http://localhost:11434/v1` | `qwen2.5:32b` | `EMPTY` |
 
-**记下这三个值**（`LLM_API_BASE`、`LLM_API_KEY`、`LLM_MODEL_NAME`），后续配置要用。
-
 ### 1.3 手动验证 Server 能启动
 
 ```bash
-# Linux / macOS
+# Sampling 模式（零配置）
+node dist/index.js
+
+# Direct 模式 — Linux / macOS
+export LLM_MODE=direct
 export LLM_API_BASE="http://127.0.0.1:8000/v1"
 export LLM_API_KEY="EMPTY"
 export LLM_MODEL_NAME="hy3"
 node dist/index.js
 
-# Windows PowerShell
+# Direct 模式 — Windows PowerShell
+$env:LLM_MODE="direct"
 $env:LLM_API_BASE="http://127.0.0.1:8000/v1"
 $env:LLM_API_KEY="EMPTY"
 $env:LLM_MODEL_NAME="hy3"
 node dist/index.js
 ```
 
-如果看到 `[cognitive-exoskeleton] MCP Server started — 8 tools registered (stdio)` 即说明正常。按 `Ctrl+C` 退出。
+如果看到 `[cognitive-exoskeleton] MCP Server started — 8 tools registered (stdio, llm=sampling)` 或 `llm=direct` 即说明正常。按 `Ctrl+C` 退出。
 
 ---
 
@@ -71,9 +83,7 @@ mkdir -p .cursor
       "command": "node",
       "args": ["d:/007/dist/index.js"],
       "env": {
-        "LLM_API_BASE": "http://127.0.0.1:8000/v1",
-        "LLM_API_KEY": "EMPTY",
-        "LLM_MODEL_NAME": "hy3",
+        "LLM_MODE": "sampling",
         "COGNITIVE_DB_PATH": "d:/007/cognitive.db"
       }
     }
@@ -81,9 +91,10 @@ mkdir -p .cursor
 }
 ```
 
+> Sampling 模式复用 Cursor 已配置的模型，无需 API key。如需使用独立 API，改为 `"LLM_MODE": "direct"` 并配置 `LLM_API_BASE` / `LLM_API_KEY` / `LLM_MODEL_NAME`。
+
 **注意**：
 - `args` 中的路径需要替换为你的**实际项目路径**，Windows 用正斜杠 `/` 或双反斜杠 `\\`
-- `LLM_API_BASE` / `LLM_API_KEY` / `LLM_MODEL_NAME` 替换为你自己的 LLM API 信息
 - `COGNITIVE_DB_PATH` 为知识图谱数据库存储位置，可以自定义
 
 ### 2.2 重启 Cursor
@@ -119,9 +130,7 @@ mkdir -p .cursor
 codebuddy mcp add cognitive-exoskeleton \
   --command "node" \
   --arg "d:/007/dist/index.js" \
-  --env LLM_API_BASE=http://127.0.0.1:8000/v1 \
-  --env LLM_API_KEY=EMPTY \
-  --env LLM_MODEL_NAME=hy3 \
+  --env LLM_MODE=sampling \
   --env COGNITIVE_DB_PATH=d:/007/cognitive.db
 ```
 
@@ -143,9 +152,7 @@ codebuddy mcp list
       "args": ["d:/007/dist/index.js"],
       "cwd": "d:/007",
       "env": {
-        "LLM_API_BASE": "http://127.0.0.1:8000/v1",
-        "LLM_API_KEY": "EMPTY",
-        "LLM_MODEL_NAME": "hy3",
+        "LLM_MODE": "sampling",
         "COGNITIVE_DB_PATH": "d:/007/cognitive.db"
       }
     }

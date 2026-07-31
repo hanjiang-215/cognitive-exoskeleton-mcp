@@ -5,7 +5,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { analyzeTopology } from "../graph/queries.js";
 import { getNodesByDomain, getNodeById } from "../graph/store.js";
@@ -14,7 +14,7 @@ import { TOPOLOGY_SYSTEM_PROMPT, buildTopologyPrompt } from "../prompts/analyze.
 
 export function registerAnalyzeTopologyTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
   dbPath: string,
 ): void {

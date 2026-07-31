@@ -5,7 +5,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { searchNodeIds, getSubgraph2Hop } from "../graph/queries.js";
 import { getEdgesForNode, getNodeById } from "../graph/store.js";
@@ -33,7 +33,7 @@ function formatSubgraphCompact(nodes: GraphNode[], edges: GraphEdge[]): string {
 
 export function registerDetectBlindspotsTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
 ): void {
   server.tool(

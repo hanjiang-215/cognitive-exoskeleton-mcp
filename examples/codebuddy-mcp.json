@@ -5,9 +5,7 @@
       "args": ["d:/007/dist/index.js"],
       "cwd": "d:/007",
       "env": {
-        "LLM_API_BASE": "http://127.0.0.1:8000/v1",
-        "LLM_API_KEY": "EMPTY",
-        "LLM_MODEL_NAME": "hy3"
+        "LLM_MODE": "sampling"
       }
     }
   }

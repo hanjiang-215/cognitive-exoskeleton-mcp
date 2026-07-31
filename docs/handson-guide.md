@@ -12,8 +12,8 @@
 - [ ] Node.js >= 18 已安装（`node -v` 检查）
 - [ ] 项目已克隆到本地（`d:\007` 或你选择的路径）
 - [ ] 已运行 `npm install && npm run build`，`dist/index.js` 存在
-- [ ] 有一个可用的 OpenAI 兼容 LLM API（Hy3 / OpenAI / Ollama 等）
-- [ ] 已记录好 API 地址、API Key、模型名称
+- [ ] **Sampling 模式（默认）**：无需额外配置，MCP 客户端已配置好 LLM 即可
+- [ ] **Direct 模式（可选）**：有一个可用的 OpenAI 兼容 LLM API，已记录好 API 地址、API Key、模型名称
 
 ---
 
@@ -24,26 +24,22 @@
 打开一个终端：
 
 ```bash
-# Windows PowerShell
+# Windows PowerShell — Sampling 模式（零配置）
 cd d:\007
-$env:LLM_API_BASE="http://127.0.0.1:8000/v1"
-$env:LLM_API_KEY="EMPTY"
-$env:LLM_MODEL_NAME="hy3"
 node dist/index.js
 ```
 
 ```bash
-# Linux / macOS
+# Linux / macOS — Sampling 模式（零配置）
 cd d:/007
-export LLM_API_BASE="http://127.0.0.1:8000/v1"
-export LLM_API_KEY="EMPTY"
-export LLM_MODEL_NAME="hy3"
 node dist/index.js
 ```
 
+> 默认自动使用 Sampling 模式，复用 MCP 客户端的 LLM 配置。如需使用独立 API，设置 `$env:LLM_MODE="direct"` 并配置 `LLM_API_BASE`、`LLM_API_KEY`、`LLM_MODEL_NAME`。
+
 **预期输出**：
 ```
-[cognitive-exoskeleton] MCP Server started — 8 tools registered (stdio)
+[cognitive-exoskeleton] MCP Server started — 8 tools registered (stdio, llm=sampling)
 ```
 
 看到即表示 Server 正常启动。按 `Ctrl+C` 退出（后续由客户端自动管理启动）。

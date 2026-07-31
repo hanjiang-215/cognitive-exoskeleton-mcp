@@ -5,7 +5,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { findCrossDomainPaths, searchNodeIds, getSubgraph1Hop } from "../graph/queries.js";
 import { getNodeById, getEdgesForNode, getAllDomains, getNodesByDomain } from "../graph/store.js";
@@ -14,7 +14,7 @@ import type { GraphNode } from "../graph/types.js";
 
 export function registerDiscoverConnectionsTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
 ): void {
   server.tool(

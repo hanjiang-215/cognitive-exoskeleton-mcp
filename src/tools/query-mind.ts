@@ -5,7 +5,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { searchNodeIds, getSubgraph1Hop, getSubgraph2Hop } from "../graph/queries.js";
 import { QUERY_SYSTEM_PROMPT, buildQueryPrompt } from "../prompts/associate.js";
@@ -38,7 +38,7 @@ function formatSubgraphForContext(subgraph: { nodes: GraphNode[]; edges: GraphEd
 
 export function registerQueryMindTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
 ): void {
   server.tool(

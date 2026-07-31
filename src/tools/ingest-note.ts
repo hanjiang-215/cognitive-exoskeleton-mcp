@@ -7,7 +7,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import fs from "node:fs";
 import matter from "gray-matter";
-import type { LLMClient } from "../llm/client.js";
+import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { EXTRACT_SYSTEM_PROMPT, buildExtractUserPrompt } from "../prompts/extract.js";
 import { ingestExtraction, isNoteChanged, addEvolutionEntry, getNodeByName, getGraphStats } from "../graph/store.js";
@@ -16,7 +16,7 @@ import type { ExtractionResult } from "../graph/types.js";
 
 export function registerIngestNoteTool(
   server: McpServer,
-  llm: LLMClient,
+  llm: LLMProvider,
   db: Database,
   dbPath: string,
 ): void {
