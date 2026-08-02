@@ -3,6 +3,7 @@ dist
 cognitive.db
 cognitive.db-wal
 cognitive.db-shm
+cognitive.db.bak
 *.log
 .env
 # 本地客户端配置（可能含 API key，勿提交）
