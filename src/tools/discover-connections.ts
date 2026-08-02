@@ -8,9 +8,11 @@ import { z } from "zod";
 import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { findCrossDomainPaths, searchNodeIds, getSubgraph1Hop } from "../graph/queries.js";
-import { getNodeById, getEdgesForNode, getAllDomains, getNodesByDomain } from "../graph/store.js";
+import { getNodeById, getEdgesForNode } from "../graph/store.js";
 import { CONNECTION_SYSTEM_PROMPT, buildConnectionPrompt } from "../prompts/associate.js";
 import type { GraphNode } from "../graph/types.js";
+import { extractKeywords } from "../text.js";
+import { guard } from "./guard.js";
 
 export function registerDiscoverConnectionsTool(
   server: McpServer,
@@ -23,12 +25,12 @@ export function registerDiscoverConnectionsTool(
     {
       topic: z.string().optional().describe("Optional topic to focus connection discovery on. If omitted, scans the entire graph."),
     },
-    async ({ topic }) => {
+    guard(async ({ topic }) => {
       let connections: Array<{ nodeA: GraphNode; nodeB: GraphNode; bridge: GraphNode }> = [];
 
       if (topic) {
         // Topic-focused: search for nodes related to the topic, then find their cross-domain connections
-        const keywords = topic.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+        const keywords = extractKeywords(topic);
         const seedIds = searchNodeIds(db, keywords, 10);
 
         if (seedIds.length === 0) {
@@ -56,7 +58,11 @@ export function registerDiscoverConnectionsTool(
               const neighborsA = new Set(edgesA.map((e) => e.source_id === a.id ? e.target_id : e.source_id));
               const bridgeId = edgesB.map((e) => e.source_id === b.id ? e.target_id : e.source_id).find((id) => neighborsA.has(id));
               const bridge = bridgeId ? getNodeById(db, bridgeId) : undefined;
-              connections.push({ nodeA: a, nodeB: b, bridge: bridge ?? a });
+              // 仅收录有真实 bridge 的连接——fallback 到 nodeA 会产生"假连接"，
+              // 让 LLM 去分析两个并无关联的实体。
+              if (bridge) {
+                connections.push({ nodeA: a, nodeB: b, bridge });
+              }
             }
           }
         }
@@ -70,26 +76,24 @@ export function registerDiscoverConnectionsTool(
         return { content: [{ type: "text", text: "No cross-domain connections found. Your knowledge graph may need more diverse content." }] };
       }
 
-      // Limit to top 5 and analyze with LLM
+      // Limit to top 5 and analyze with LLM (并行调用，避免串行等待)
       const topConnections = connections.slice(0, 5);
-      const analyses: string[] = [];
+      const analyses = await Promise.all(
+        topConnections.map(async (conn) => {
+          const contextA = `${conn.nodeA.summary} (domain: ${conn.nodeA.domain}, mentions: ${conn.nodeA.mention_count})`;
+          const contextB = `${conn.nodeB.summary} (domain: ${conn.nodeB.domain}, mentions: ${conn.nodeB.mention_count})`;
+          const bridgeContext = conn.bridge.id !== conn.nodeA.id && conn.bridge.id !== conn.nodeB.id
+            ? `Connected through: ${conn.bridge.name} (${conn.bridge.domain})`
+            : undefined;
 
-      for (const conn of topConnections) {
-        const contextA = `${conn.nodeA.summary} (domain: ${conn.nodeA.domain}, mentions: ${conn.nodeA.mention_count})`;
-        const contextB = `${conn.nodeB.summary} (domain: ${conn.nodeB.domain}, mentions: ${conn.nodeB.mention_count})`;
-        const bridgeContext = conn.bridge.id !== conn.nodeA.id && conn.bridge.id !== conn.nodeB.id
-          ? `Connected through: ${conn.bridge.name} (${conn.bridge.domain})`
-          : undefined;
-
-        const analysis = await llm.chat({
-          system: CONNECTION_SYSTEM_PROMPT,
-          user: buildConnectionPrompt(conn.nodeA.name, conn.nodeB.name, contextA, contextB, bridgeContext),
-          temperature: 0.8,
-          maxTokens: 1024,
-        });
-
-        analyses.push(analysis);
-      }
+          return llm.chat({
+            system: CONNECTION_SYSTEM_PROMPT,
+            user: buildConnectionPrompt(conn.nodeA.name, conn.nodeB.name, contextA, contextB, bridgeContext),
+            temperature: 0.8,
+            maxTokens: 1024,
+          });
+        }),
+      );
 
       // Build response
       let response = `Discovered ${connections.length} cross-domain connection(s). Here are the top ${topConnections.length}:\n\n`;
@@ -103,6 +107,6 @@ export function registerDiscoverConnectionsTool(
       }
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }

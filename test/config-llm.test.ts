@@ -249,7 +249,7 @@ describe("LLMClient", () => {
 
     await assert.rejects(
       () => client.chatJSON({ system: "test", user: "test" }),
-      (err: Error) => err instanceof SyntaxError,
+      (err: Error) => err.message.includes("invalid JSON"),
     );
   });
 });

@@ -9,6 +9,7 @@ import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { getNodeByName, getEvolutionLog, getEdgesForNode, getNodeById } from "../graph/store.js";
 import { EVOLUTION_SYSTEM_PROMPT, buildEvolutionPrompt } from "../prompts/analyze.js";
+import { guard } from "./guard.js";
 
 export function registerTraceEvolutionTool(
   server: McpServer,
@@ -21,7 +22,7 @@ export function registerTraceEvolutionTool(
     {
       concept: z.string().describe("The concept name to trace evolution for"),
     },
-    async ({ concept }) => {
+    guard(async ({ concept }) => {
       // 1. Find the node
       const node = getNodeByName(db, concept);
       if (!node) {
@@ -87,6 +88,6 @@ export function registerTraceEvolutionTool(
       response += analysis;
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }

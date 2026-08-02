@@ -28,12 +28,22 @@ export async function initDatabase(dbPath: string): Promise<DB> {
 
   db.run(SCHEMA_SQL);
 
+  // name+domain 唯一索引作为 upsertNode SELECT-then-INSERT 的并发防线。
+  // 历史脏库若已存在重复 name+domain，索引创建会失败——仅警告，不阻断启动。
+  try {
+    db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_nodes_unique_name_domain ON nodes(name, domain)`);
+  } catch (err) {
+    console.error("[db] WARNING: could not create unique index on nodes(name, domain):", err);
+  }
+
   return db;
 }
 
 /**
  * Persist the in-memory database to disk.
  * Call this after write operations to ensure durability.
+ *
+ * 原子写：先写临时文件再 rename，避免写入中途崩溃留下损坏的 db 文件。
  */
 export function saveDatabase(db: DB, dbPath: string): void {
   const data = db.export();
@@ -43,7 +53,9 @@ export function saveDatabase(db: DB, dbPath: string): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(resolvedPath, buffer);
+  const tmpPath = `${resolvedPath}.tmp`;
+  fs.writeFileSync(tmpPath, buffer);
+  fs.renameSync(tmpPath, resolvedPath);
 }
 
 const SCHEMA_SQL = `

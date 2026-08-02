@@ -11,6 +11,7 @@ import { analyzeTopology } from "../graph/queries.js";
 import { getNodesByDomain, getNodeById } from "../graph/store.js";
 import { saveDatabase } from "../graph/schema.js";
 import { TOPOLOGY_SYSTEM_PROMPT, buildTopologyPrompt } from "../prompts/analyze.js";
+import { guard } from "./guard.js";
 
 export function registerAnalyzeTopologyTool(
   server: McpServer,
@@ -24,7 +25,7 @@ export function registerAnalyzeTopologyTool(
     {
       domain: z.string().optional().describe("Optional: limit analysis to a specific knowledge domain"),
     },
-    async ({ domain }) => {
+    guard(async ({ domain }) => {
       // 1. Run topology analysis
       const topology = analyzeTopology(db);
 
@@ -102,6 +103,6 @@ export function registerAnalyzeTopologyTool(
       response += portrait;
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }

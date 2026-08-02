@@ -5,6 +5,7 @@
 
 import type { Database } from "sql.js";
 import crypto from "node:crypto";
+import { selectAll, run } from "./sql.js";
 import type {
   GraphNode,
   GraphEdge,
@@ -19,34 +20,21 @@ function genId(): string {
   return crypto.randomUUID();
 }
 
-/** Run a SELECT and return all rows as objects. */
-function selectAll<T>(db: Database, sql: string, params: unknown[] = []): T[] {
-  const stmt = db.prepare(sql);
-  stmt.bind(params as any);
-  const rows: T[] = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject() as T);
-  }
-  stmt.free();
-  return rows;
-}
-
-/** Run a statement (INSERT/UPDATE/DELETE). */
-function run(db: Database, sql: string, params: unknown[] = []): void {
-  db.run(sql, params as any);
-}
-
 // ─── Nodes ─────────────────────────────────────────────────
 
 export function upsertNode(
   db: Database,
   data: { name: string; type: string; summary: string; domain: string; source_file?: string },
 ): { node: GraphNode; isNew: boolean } {
+  // 规范化：name/domain 去首尾空白，避免 LLM 抽取的 "CAP Theorem " 与 "CAP Theorem" 分裂成两个实体
+  const name = data.name.trim();
+  const domain = data.domain.trim() || "general";
+
   // Check if node with same name + domain already exists
   const existing = selectAll<GraphNode>(
     db,
     `SELECT * FROM nodes WHERE name = ? AND domain = ? LIMIT 1`,
-    [data.name, data.domain],
+    [name, domain],
   );
 
   if (existing.length > 0) {
@@ -66,7 +54,7 @@ export function upsertNode(
     db,
     `INSERT INTO nodes (id, type, name, summary, domain, source_file)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, data.type, data.name, data.summary, data.domain, data.source_file ?? ""],
+    [id, data.type, name, data.summary, domain, data.source_file ?? ""],
   );
 
   const created = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE id = ?`, [id])[0];
@@ -80,6 +68,16 @@ export function getNodeById(db: Database, id: string): GraphNode | undefined {
 
 export function getNodeByName(db: Database, name: string): GraphNode | undefined {
   const rows = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE name = ? LIMIT 1`, [name]);
+  return rows[0];
+}
+
+/** 按 name+domain 精确匹配节点（与 upsertNode 的判重口径一致）。 */
+export function getNodeByNameAndDomain(db: Database, name: string, domain: string): GraphNode | undefined {
+  const rows = selectAll<GraphNode>(
+    db,
+    `SELECT * FROM nodes WHERE name = ? AND domain = ? LIMIT 1`,
+    [name.trim(), domain.trim()],
+  );
   return rows[0];
 }
 

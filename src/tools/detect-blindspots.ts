@@ -11,6 +11,8 @@ import { searchNodeIds, getSubgraph2Hop } from "../graph/queries.js";
 import { getEdgesForNode, getNodeById } from "../graph/store.js";
 import { BLINDSPOT_SYSTEM_PROMPT, buildBlindspotPrompt } from "../prompts/analyze.js";
 import type { GraphNode, GraphEdge } from "../graph/types.js";
+import { extractKeywords } from "../text.js";
+import { guard } from "./guard.js";
 
 function formatSubgraphCompact(nodes: GraphNode[], edges: GraphEdge[]): string {
   if (nodes.length === 0) return "(empty graph)";
@@ -42,9 +44,9 @@ export function registerDetectBlindspotsTool(
     {
       topic: z.string().describe("The topic to analyze for blindspots"),
     },
-    async ({ topic }) => {
+    guard(async ({ topic }) => {
       // 1. Search for seed nodes
-      const keywords = topic.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+      const keywords = extractKeywords(topic);
       const seedIds = searchNodeIds(db, keywords, 15);
 
       if (seedIds.length === 0) {
@@ -84,6 +86,6 @@ export function registerDetectBlindspotsTool(
       });
 
       return { content: [{ type: "text", text: analysis }] };
-    },
+    }),
   );
 }

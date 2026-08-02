@@ -39,8 +39,8 @@ Cognitive Exoskeleton 不是普通的搜索工具。它从你的笔记中构建�
 
 ```bash
 # 克隆并安装
-git clone https://github.com/Tencent-Hunyuan/Hy3.git
-cd Hy3/rhinobird2026/cognitive-exoskeleton-mcp
+git clone https://github.com/hanjiang-215/cognitive-exoskeleton-mcp.git
+cd cognitive-exoskeleton-mcp
 npm install && npm run build
 
 # 启动（零配置 — 自动复用 Cursor/WorkBuddy 的模型）
@@ -232,8 +232,8 @@ Cognitive Exoskeleton is not just a search tool. It builds a dynamic knowledge g
 **Prerequisites**: Node.js >= 18
 
 ```bash
-git clone https://github.com/Tencent-Hunyuan/Hy3.git
-cd Hy3/rhinobird2026/cognitive-exoskeleton-mcp
+git clone https://github.com/hanjiang-215/cognitive-exoskeleton-mcp.git
+cd cognitive-exoskeleton-mcp
 npm install && npm run build
 
 # Zero-config — automatically reuses your MCP client's LLM via Sampling

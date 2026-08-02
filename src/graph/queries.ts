@@ -3,6 +3,7 @@
  */
 
 import type { Database } from "sql.js";
+import { selectAll } from "./sql.js";
 import type {
   GraphNode,
   GraphEdge,
@@ -10,19 +11,6 @@ import type {
   PathResult,
   TopologyResult,
 } from "./types.js";
-
-// ─── helpers ───────────────────────────────────────────────
-
-function selectAll<T>(db: Database, sql: string, params: unknown[] = []): T[] {
-  const stmt = db.prepare(sql);
-  stmt.bind(params as any);
-  const rows: T[] = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject() as T);
-  }
-  stmt.free();
-  return rows;
-}
 
 // ─── Subgraph extraction ───────────────────────────────────
 
@@ -108,6 +96,13 @@ export function findPaths(
   toNodeId: string,
   maxHops = 3,
 ): PathResult[] {
+  // Load the whole graph into memory once (avoids N+1 node lookups inside DFS)
+  const allNodes = selectAll<GraphNode>(db, `SELECT * FROM nodes`);
+  const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
+
+  const startNode = nodeMap.get(fromNodeId);
+  if (!startNode) return [];
+
   // Build adjacency list (undirected)
   const allEdges = selectAll<GraphEdge>(db, `SELECT * FROM edges`);
   const adj = new Map<string, Array<{ neighborId: string; edge: GraphEdge }>>();
@@ -135,10 +130,10 @@ export function findPaths(
     for (const { neighborId, edge } of neighbors) {
       if (visited.has(neighborId)) continue;
 
-      const neighborNode = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE id = ?`, [neighborId]);
-      if (neighborNode.length === 0) continue;
+      const neighborNode = nodeMap.get(neighborId);
+      if (!neighborNode) continue;
 
-      path.push(neighborNode[0]);
+      path.push(neighborNode);
       pathEdges.push(edge);
       dfs(neighborId, path, pathEdges);
       path.pop();
@@ -148,10 +143,7 @@ export function findPaths(
     visited.delete(current);
   }
 
-  const startNode = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE id = ?`, [fromNodeId]);
-  if (startNode.length === 0) return [];
-
-  dfs(fromNodeId, [startNode[0]], []);
+  dfs(fromNodeId, [startNode], []);
   return results;
 }
 
@@ -164,16 +156,21 @@ export function findCrossDomainPaths(
 ): Array<{ nodeA: GraphNode; nodeB: GraphNode; bridge: GraphNode; pathEdges: GraphEdge[] }> {
   const results: Array<{ nodeA: GraphNode; nodeB: GraphNode; bridge: GraphNode; pathEdges: GraphEdge[] }> = [];
 
-  // Find bridge nodes: nodes that have edges to nodes in different domains
+  // Load nodes + per-node edges once (avoids N+1 per-node edge scans)
   const allNodes = selectAll<GraphNode>(db, `SELECT * FROM nodes`);
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
 
+  const edgesByNode = new Map<string, GraphEdge[]>();
+  const allEdges = selectAll<GraphEdge>(db, `SELECT * FROM edges`);
+  for (const e of allEdges) {
+    if (!edgesByNode.has(e.source_id)) edgesByNode.set(e.source_id, []);
+    if (!edgesByNode.has(e.target_id)) edgesByNode.set(e.target_id, []);
+    edgesByNode.get(e.source_id)!.push(e);
+    edgesByNode.get(e.target_id)!.push(e);
+  }
+
   for (const node of allNodes) {
-    const edges = selectAll<GraphEdge>(
-      db,
-      `SELECT * FROM edges WHERE source_id = ? OR target_id = ?`,
-      [node.id, node.id],
-    );
+    const edges = edgesByNode.get(node.id) ?? [];
 
     // Collect domains of neighbors
     const neighborDomains = new Set<string>();

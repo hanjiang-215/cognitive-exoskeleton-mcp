@@ -10,6 +10,8 @@ import type { Database } from "sql.js";
 import { searchNodeIds, getSubgraph1Hop, getSubgraph2Hop } from "../graph/queries.js";
 import { QUERY_SYSTEM_PROMPT, buildQueryPrompt } from "../prompts/associate.js";
 import type { GraphNode, GraphEdge } from "../graph/types.js";
+import { extractKeywords } from "../text.js";
+import { guard } from "./guard.js";
 
 function formatSubgraphForContext(subgraph: { nodes: GraphNode[]; edges: GraphEdge[] }): string {
   if (subgraph.nodes.length === 0) return "(empty — no relevant knowledge found)";
@@ -48,13 +50,9 @@ export function registerQueryMindTool(
       question: z.string().describe("The question to answer from your knowledge graph"),
       depth: z.enum(["shallow", "deep"]).optional().describe("Retrieval depth: 'shallow' (1-hop, default) or 'deep' (2-hop with path reasoning)"),
     },
-    async ({ question, depth }) => {
-      // 1. Extract keywords from the question (simple split + filter)
-      const keywords = question
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 2);
+    guard(async ({ question, depth }) => {
+      // 1. Extract keywords from the question (supports Chinese & English)
+      const keywords = extractKeywords(question);
 
       // 2. Search for seed nodes
       const seedIds = searchNodeIds(db, keywords, 10);
@@ -89,6 +87,6 @@ export function registerQueryMindTool(
       const response = `${answer}\n\n---\nReferenced entities (${subgraph.nodes.length} total):\n${citedNodes}`;
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }

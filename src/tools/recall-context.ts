@@ -10,6 +10,8 @@ import type { Database } from "sql.js";
 import { searchNodeIds, getSubgraph1Hop } from "../graph/queries.js";
 import { getNodeById, getEdgesForNode } from "../graph/store.js";
 import type { GraphNode } from "../graph/types.js";
+import { extractKeywords } from "../text.js";
+import { guard } from "./guard.js";
 
 export function registerRecallContextTool(
   server: McpServer,
@@ -23,16 +25,11 @@ export function registerRecallContextTool(
       current_text: z.string().describe("The text you are currently writing (a paragraph, section, or draft)"),
       max_results: z.number().optional().describe("Maximum number of related notes to return (default: 5)"),
     },
-    async ({ current_text, max_results }) => {
+    guard(async ({ current_text, max_results }) => {
       const limit = max_results ?? 5;
 
-      // 1. Extract keywords from current text
-      const keywords = current_text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 3)
-        .slice(0, 20);
+      // 1. Extract keywords from current text (supports Chinese & English)
+      const keywords = extractKeywords(current_text, 2, 20);
 
       if (keywords.length === 0) {
         return { content: [{ type: "text", text: "No significant keywords found in the provided text." }] };
@@ -100,6 +97,6 @@ export function registerRecallContextTool(
       }
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }

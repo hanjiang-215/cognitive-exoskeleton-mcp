@@ -5,3 +5,7 @@ cognitive.db-wal
 cognitive.db-shm
 *.log
 .env
+# 本地客户端配置（可能含 API key，勿提交）
+.codebuddy/
+.claude/
+.cursor/

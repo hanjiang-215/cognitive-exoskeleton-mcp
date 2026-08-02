@@ -10,9 +10,10 @@ import matter from "gray-matter";
 import type { LLMProvider } from "../llm/client.js";
 import type { Database } from "sql.js";
 import { EXTRACT_SYSTEM_PROMPT, buildExtractUserPrompt } from "../prompts/extract.js";
-import { ingestExtraction, isNoteChanged, addEvolutionEntry, getNodeByName, getGraphStats } from "../graph/store.js";
+import { ingestExtraction, isNoteChanged, addEvolutionEntry, getNodeByNameAndDomain, getGraphStats } from "../graph/store.js";
 import { saveDatabase } from "../graph/schema.js";
-import type { ExtractionResult } from "../graph/types.js";
+import { ExtractionResultSchema, describeExtractionIssues } from "../graph/extraction-schema.js";
+import { guard } from "./guard.js";
 
 export function registerIngestNoteTool(
   server: McpServer,
@@ -27,7 +28,7 @@ export function registerIngestNoteTool(
       content: z.string().optional().describe("Raw text content to extract knowledge from. Provide this OR file_path."),
       file_path: z.string().optional().describe("Path to a Markdown or text file to read and extract from. Provide this OR content."),
     },
-    async ({ content, file_path }) => {
+    guard(async ({ content, file_path }) => {
       // 1. Resolve content source
       let text = content ?? "";
       let sourceFile = file_path ?? "<inline-text>";
@@ -52,21 +53,36 @@ export function registerIngestNoteTool(
       }
 
       // 3. Call LLM for extraction
-      const extraction = await llm.chatJSON<ExtractionResult>({
+      const rawExtraction = await llm.chatJSON({
         system: EXTRACT_SYSTEM_PROMPT,
         user: buildExtractUserPrompt(text),
         temperature: 0.3,
         maxTokens: 4096,
       });
 
+      // 3.1. Validate LLM output — 非法枚举值会导致 DB CHECK 约束抛错，
+      //      缺省字段用默认值补全，避免静默写入脏数据。
+      const parsed = ExtractionResultSchema.safeParse(rawExtraction);
+      if (!parsed.success) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error: LLM extraction returned an invalid structure: ${describeExtractionIssues(parsed)}`,
+          }],
+        };
+      }
+      const extraction = parsed.data;
+
       // 4. Write to graph database
       const result = ingestExtraction(db, extraction, sourceFile, text);
       saveDatabase(db, dbPath);
 
       // 5. Check for evolution entries (existing concepts with new info)
+      //    按 name+domain 精确匹配（与 upsertNode 的判重口径一致），
+      //    避免跨域同名节点被错误挂到 evolution 上。
       const evolutionNotes: string[] = [];
       for (const n of extraction.nodes) {
-        const existing = getNodeByName(db, n.name);
+        const existing = getNodeByNameAndDomain(db, n.name, n.domain);
         if (existing && existing.mention_count > 1) {
           addEvolutionEntry(db, {
             node_id: existing.id,
@@ -95,6 +111,6 @@ export function registerIngestNoteTool(
       }
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }

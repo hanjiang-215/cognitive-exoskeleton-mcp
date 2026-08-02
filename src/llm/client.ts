@@ -33,6 +33,26 @@ export interface LLMProvider {
 }
 
 /* ------------------------------------------------------------------ */
+/*  JSON 响应解析（容忍 markdown 代码块包裹）                           */
+/* ------------------------------------------------------------------ */
+
+const JSON_PROMPT_SUFFIX = `\n\nIMPORTANT: Respond with valid JSON only. No markdown, no explanation outside JSON.`;
+
+/** 从 LLM 文本中提取 JSON；解析失败时抛出带响应片段的可诊断错误。 */
+function parseJSONResponse<T>(raw: string): T {
+  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const jsonStr = jsonMatch ? jsonMatch[1].trim() : raw.trim();
+  try {
+    return JSON.parse(jsonStr) as T;
+  } catch (err) {
+    throw new Error(
+      `LLM returned invalid JSON (first 200 chars): ${jsonStr.slice(0, 200)}`,
+      { cause: err },
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  模式一：直连 OpenAI 兼容 API                                        */
 /* ------------------------------------------------------------------ */
 
@@ -78,11 +98,9 @@ export class DirectLLMClient implements LLMProvider {
   }): Promise<T> {
     const raw = await this.chat({
       ...options,
-      system: `${options.system}\n\nIMPORTANT: Respond with valid JSON only. No markdown, no explanation outside JSON.`,
+      system: `${options.system}${JSON_PROMPT_SUFFIX}`,
     });
-    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const jsonStr = jsonMatch ? jsonMatch[1].trim() : raw.trim();
-    return JSON.parse(jsonStr) as T;
+    return parseJSONResponse<T>(raw);
   }
 }
 
@@ -136,11 +154,9 @@ export class SamplingLLMClient implements LLMProvider {
   }): Promise<T> {
     const raw = await this.chat({
       ...options,
-      system: `${options.system}\n\nIMPORTANT: Respond with valid JSON only. No markdown, no explanation outside JSON.`,
+      system: `${options.system}${JSON_PROMPT_SUFFIX}`,
     });
-    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const jsonStr = jsonMatch ? jsonMatch[1].trim() : raw.trim();
-    return JSON.parse(jsonStr) as T;
+    return parseJSONResponse<T>(raw);
   }
 }
 

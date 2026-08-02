@@ -11,6 +11,7 @@ import type { Database } from "sql.js";
 import { getAllDomains, getSampleNodesByDomain } from "../graph/store.js";
 import { SERENDIPITY_SYSTEM_PROMPT, buildSerendipityPrompt } from "../prompts/associate.js";
 import { saveDatabase as saveDb } from "../graph/schema.js";
+import { guard } from "./guard.js";
 
 export function registerSparkSerendipityTool(
   server: McpServer,
@@ -25,7 +26,7 @@ export function registerSparkSerendipityTool(
       domain_a: z.string().describe("First knowledge domain (e.g., 'distributed-systems')"),
       domain_b: z.string().describe("Second knowledge domain (e.g., 'biology')"),
     },
-    async ({ domain_a, domain_b }) => {
+    guard(async ({ domain_a, domain_b }) => {
       // 1. Get available domains if user wants to browse
       const allDomains = getAllDomains(db);
       if (allDomains.length < 2) {
@@ -93,6 +94,6 @@ export function registerSparkSerendipityTool(
       response += `Available domains for next spark: ${allDomains.join(", ")}`;
 
       return { content: [{ type: "text", text: response }] };
-    },
+    }),
   );
 }
