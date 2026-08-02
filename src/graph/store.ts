@@ -5,7 +5,7 @@
 
 import type { Database } from "sql.js";
 import crypto from "node:crypto";
-import { selectAll, run } from "./sql.js";
+import { selectAll, selectNodes, run } from "./sql.js";
 import type {
   GraphNode,
   GraphEdge,
@@ -20,18 +20,31 @@ function genId(): string {
   return crypto.randomUUID();
 }
 
+/** 合并别名（并集去重，保留原顺序；空串剔除）。 */
+function mergeAliases(existing: string[], incoming: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const a of [...existing, ...incoming]) {
+    const t = a.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 // ─── Nodes ─────────────────────────────────────────────────
 
 export function upsertNode(
   db: Database,
-  data: { name: string; type: string; summary: string; domain: string; source_file?: string },
+  data: { name: string; type: string; summary: string; domain: string; source_file?: string; aliases?: string[] },
 ): { node: GraphNode; isNew: boolean } {
   // 规范化：name/domain 去首尾空白，避免 LLM 抽取的 "CAP Theorem " 与 "CAP Theorem" 分裂成两个实体
   const name = data.name.trim();
   const domain = data.domain.trim() || "general";
 
   // Check if node with same name + domain already exists
-  const existing = selectAll<GraphNode>(
+  const existing = selectNodes(
     db,
     `SELECT * FROM nodes WHERE name = ? AND domain = ? LIMIT 1`,
     [name, domain],
@@ -40,40 +53,41 @@ export function upsertNode(
   if (existing.length > 0) {
     const node = existing[0];
     const newSummary = data.summary || node.summary;
+    const mergedAliases = mergeAliases(node.aliases, data.aliases ?? []);
     run(
       db,
-      `UPDATE nodes SET mention_count = mention_count + 1, last_seen_at = datetime('now'), summary = ? WHERE id = ?`,
-      [newSummary, node.id],
+      `UPDATE nodes SET mention_count = mention_count + 1, last_seen_at = datetime('now'), summary = ?, aliases = ? WHERE id = ?`,
+      [newSummary, JSON.stringify(mergedAliases), node.id],
     );
-    const updated = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE id = ?`, [node.id])[0];
+    const updated = selectNodes(db, `SELECT * FROM nodes WHERE id = ?`, [node.id])[0];
     return { node: updated, isNew: false };
   }
 
   const id = genId();
   run(
     db,
-    `INSERT INTO nodes (id, type, name, summary, domain, source_file)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, data.type, name, data.summary, domain, data.source_file ?? ""],
+    `INSERT INTO nodes (id, type, name, summary, domain, aliases, source_file)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.type, name, data.summary, domain, JSON.stringify(data.aliases ?? []), data.source_file ?? ""],
   );
 
-  const created = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE id = ?`, [id])[0];
+  const created = selectNodes(db, `SELECT * FROM nodes WHERE id = ?`, [id])[0];
   return { node: created, isNew: true };
 }
 
 export function getNodeById(db: Database, id: string): GraphNode | undefined {
-  const rows = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE id = ?`, [id]);
+  const rows = selectNodes(db, `SELECT * FROM nodes WHERE id = ?`, [id]);
   return rows[0];
 }
 
 export function getNodeByName(db: Database, name: string): GraphNode | undefined {
-  const rows = selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE name = ? LIMIT 1`, [name]);
+  const rows = selectNodes(db, `SELECT * FROM nodes WHERE name = ? LIMIT 1`, [name]);
   return rows[0];
 }
 
 /** 按 name+domain 精确匹配节点（与 upsertNode 的判重口径一致）。 */
 export function getNodeByNameAndDomain(db: Database, name: string, domain: string): GraphNode | undefined {
-  const rows = selectAll<GraphNode>(
+  const rows = selectNodes(
     db,
     `SELECT * FROM nodes WHERE name = ? AND domain = ? LIMIT 1`,
     [name.trim(), domain.trim()],
@@ -83,19 +97,19 @@ export function getNodeByNameAndDomain(db: Database, name: string, domain: strin
 
 export function searchNodes(db: Database, query: string, limit = 20): GraphNode[] {
   const pattern = `%${query}%`;
-  return selectAll<GraphNode>(
+  return selectNodes(
     db,
-    `SELECT * FROM nodes WHERE name LIKE ? OR summary LIKE ? ORDER BY mention_count DESC LIMIT ?`,
-    [pattern, pattern, limit],
+    `SELECT * FROM nodes WHERE name LIKE ? OR summary LIKE ? OR aliases LIKE ? ORDER BY mention_count DESC LIMIT ?`,
+    [pattern, pattern, pattern, limit],
   );
 }
 
 export function getNodesByDomain(db: Database, domain: string): GraphNode[] {
-  return selectAll<GraphNode>(db, `SELECT * FROM nodes WHERE domain = ? ORDER BY name`, [domain]);
+  return selectNodes(db, `SELECT * FROM nodes WHERE domain = ? ORDER BY name`, [domain]);
 }
 
 export function getAllNodes(db: Database): GraphNode[] {
-  return selectAll<GraphNode>(db, `SELECT * FROM nodes ORDER BY last_seen_at DESC`);
+  return selectNodes(db, `SELECT * FROM nodes ORDER BY last_seen_at DESC`);
 }
 
 export function getAllDomains(db: Database): string[] {
@@ -104,7 +118,7 @@ export function getAllDomains(db: Database): string[] {
 }
 
 export function getSampleNodesByDomain(db: Database, domain: string, limit = 5): GraphNode[] {
-  return selectAll<GraphNode>(
+  return selectNodes(
     db,
     `SELECT * FROM nodes WHERE domain = ? ORDER BY RANDOM() LIMIT ?`,
     [domain, limit],

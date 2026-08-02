@@ -4,92 +4,82 @@
 >
 > **Your Personal Cognitive Exoskeleton** — a "second brain" MCP Server powered by knowledge graph + LLM reasoning
 
+**当前版本：v1.0.0**（详见文末[版本说明](#版本说明)）
+
 ---
-
-
 
 ## 中文文档
 
-Cognitive Exoskeleton 不是普通的搜索工具。它从你的笔记中构建动态知识图谱，然后利用 LLM 推理能力**主动发现知识盲点、寻找隐藏的跨领域关联、追踪你对某个概念的理解如何随时间演变，并通过碰撞不同领域的想法来激发创造性灵感**。
+### 这是什么？写给第一次接触的朋友
 
-- 所有数据完全本地存储（SQLite），隐私安全
-- 零配置：默认通过 MCP Sampling 复用客户端的 LLM，也可自带 API（Hy3、OpenAI、Ollama、vLLM 等）
-- 即插即用：兼容 Cursor、CodeBuddy、WorkBuddy、Cline 等主流 MCP 客户端
+Cognitive Exoskeleton（认知外骨骼）是一款**帮你把笔记变成「会思考的知识网络」的工具**。
+
+先打个比方：普通笔记软件像一叠散乱的卡片，而它会把你的笔记**自动织成一张网**——
+
+- **实体**：网上的「点」，比如一个概念（CAP 定理）、一个人（你的导师）、一个项目（毕业论文）
+- **关系**：点之间的「线」，比如「A 是 B 的一部分」「A 导致 B」「A 和 B 互相引用」
+- **知识图谱**：这张由点和线组成的网
+
+你只需要把笔记交给它（`ingest_note`），AI 会自动识别出网上的点和线，存进你**本地**的数据库里。之后你可以：
+
+- 问它「我对 CAP 定理了解多少？」——它在你的网上检索、推理后回答
+- 让它「找找分布式系统和机器学习之间的隐藏联系」——它碰撞不同领域，给你灵感
+- 让它「看看我知识图谱的盲区」——它指出你学过的和没学的之间的缺口
+- 写作时自动召回你 3 个月前写过的相关笔记
+
+**隐私**：所有数据（笔记、图谱）只存在你本机的 SQLite 文件里（默认 `./cognitive.db`），不上传任何服务器。
+
+---
 
 ### 功能特性
 
 提供 **8 个 MCP 工具**，分为四个层次：
 
+| 层次 | 工具 | 功能 |
+| --- | --- | --- |
+| **基础层** | `ingest_note` | 从笔记/文档中抽取实体和关系，写入知识图谱 |
+| | `query_mind` | 基于知识图谱回答问题，支持浅层/深层检索 |
+| | `recall_context` | 写作时自动召回相关但可能遗忘的旧笔记 |
+| **推理层** | `discover_connections` | 发现不同领域间隐藏的、非显而易见的知识关联 |
+| | `detect_blindspots` | 分析某话题的知识覆盖度，识别盲点、矛盾和缺失视角 |
+| | `analyze_cognitive_topology` | 生成「认知画像」：知识孤岛、桥梁概念、密集区/空白区 |
+| **时间层** | `trace_concept_evolution` | 追踪你对某个概念的理解如何随时间变化 |
+| **灵感层** | `spark_serendipity` | 碰撞两个不同领域的概念，激发跨域创造性灵感 |
 
-| 层次      | 工具                           | 功能                         |
-| ------- | ---------------------------- | -------------------------- |
-| **基础层** | `ingest_note`                | 从笔记/文档中抽取实体和关系，写入知识图谱      |
-|         | `query_mind`                 | 基于知识图谱回答问题，支持浅层/深层检索       |
-|         | `recall_context`             | 写作时自动召回相关但可能遗忘的旧笔记         |
-| **推理层** | `discover_connections`       | 发现不同领域间隐藏的、非显而易见的知识关联      |
-|         | `detect_blindspots`          | 分析某话题的知识覆盖度，识别盲点、矛盾和缺失视角   |
-|         | `analyze_cognitive_topology` | 生成「认知画像」：知识孤岛、桥梁概念、密集区/空白区 |
-| **时间层** | `trace_concept_evolution`    | 追踪你对某个概念的理解如何随时间变化         |
-| **灵感层** | `spark_serendipity`          | 碰撞两个不同领域的概念，激发跨域创造性灵感      |
-
+---
 
 ### 快速开始
 
-**环境要求**：Node.js >= 18
+**环境要求**：Node.js >= 18（[下载地址](https://nodejs.org/)）
 
 ```bash
-# 克隆并安装
+# 1. 克隆项目
 git clone https://github.com/hanjiang-215/cognitive-exoskeleton-mcp.git
 cd cognitive-exoskeleton-mcp
-npm install && npm run build
 
-# 启动（零配置 — 自动复用 Cursor/WorkBuddy 的模型）
+# 2. 安装依赖并构建
+npm install
+npm run build
+
+# 3. 启动（默认零配置）
 node dist/index.js
 ```
 
-> **零配置模式**：默认情况下，MCP Server 通过 MCP Sampling 协议复用客户端（Cursor、WorkBuddy 等）已配置的 LLM 模型，无需单独配置 API key。
+> 启动后看到 `Mode: sampling` 等日志，说明服务已正常运行，可以到 MCP 客户端里添加并开始使用了。
 
-如需使用独立的 LLM API，可配置环境变量切换到 **Direct 模式**：
+---
 
-```bash
-export LLM_MODE=direct
-export LLM_API_BASE="http://127.0.0.1:8000/v1"
-export LLM_API_KEY="EMPTY"
-export LLM_MODEL_NAME="hy3"
-node dist/index.js
-```
+### 选择你的模型（重要）
 
-### 环境变量
+这个工具本身不带 AI 模型，它需要一个大语言模型（LLM）来做「识别实体」「推理回答」这些事。你有两种方式接入模型：
 
+#### 模式 A：零配置 —— 复用 IDE 自带的模型（推荐新手）
 
-| 变量                  | 说明                                        | 默认值            |
-| ------------------- | ----------------------------------------- | -------------- |
-| `LLM_MODE`          | LLM 调用模式：`sampling`（委托客户端）或 `direct`（直连 API） | 自动检测*          |
-| `LLM_API_BASE`      | (Direct 模式) OpenAI 兼容 API 的基础 URL          | `http://127.0.0.1:8000/v1` |
-| `LLM_API_KEY`       | (Direct 模式) LLM 提供商的 API Key                | `EMPTY`        |
-| `LLM_MODEL_NAME`    | (Direct 模式) 使用的模型名称                         | `gpt-4o-mini`  |
-| `COGNITIVE_DB_PATH` | SQLite 数据库文件路径                              | `./cognitive.db` |
+**适合**：你在 Cursor / CodeBuddy / WorkBuddy 里使用，这些工具本身已配置了 AI 模型（如 Claude、GPT）。
 
-> \* 自动检测逻辑：如果 `LLM_API_BASE` 和 `LLM_API_KEY` 都已配置（且 key 不是 `EMPTY`），则使用 `direct` 模式；否则使用 `sampling` 模式。
+这种模式下，服务器通过 **MCP Sampling 协议**「借用」你正在使用的 IDE 的模型——**不需要申请任何 API key，不需要额外配置**。每次调用模型时，你的 IDE 会弹窗提示你确认。
 
-
-### 多模型支持（Direct 模式）
-
-以下配置仅在 `LLM_MODE=direct` 时需要：
-
-
-| 模型提供商        | `LLM_API_BASE`                       | `LLM_MODEL_NAME` |
-| ------------ | ------------------------------------ | ---------------- |
-| Hy3（本地 vLLM） | `http://127.0.0.1:8000/v1`           | `hy3`            |
-| Hy3（官方 API）  | `https://api.hunyuan.tencent.com/v1` | `hy3`            |
-| OpenAI       | `https://api.openai.com/v1`          | `gpt-4o`         |
-| Ollama（本地）   | `http://localhost:11434/v1`          | `qwen2.5:32b`    |
-| vLLM（任意模型）   | `http://127.0.0.1:8000/v1`           | `<模型名>`          |
-
-
-### MCP 客户端配置
-
-**Cursor** — `.cursor/mcp.json`（零配置，复用 Cursor 的模型）：
+**Cursor** — 在 `.cursor/mcp.json` 中加入：
 
 ```json
 {
@@ -105,7 +95,7 @@ node dist/index.js
 }
 ```
 
-**CodeBuddy / WorkBuddy** — CLI 命令：
+**CodeBuddy / WorkBuddy** — 命令行添加：
 
 ```bash
 codebuddy mcp add cognitive-exoskeleton \
@@ -114,7 +104,89 @@ codebuddy mcp add cognitive-exoskeleton \
   --env LLM_MODE=sampling
 ```
 
-> **Sampling 模式说明**：MCP Server 通过 MCP Sampling 协议将 LLM 调用委托给客户端。客户端会使用自己已配置的模型（如 Cursor 配置的 Claude/GPT、WorkBuddy 配置的模型等），用户无需为 MCP Server 单独申请或配置 API key。每次 LLM 调用时客户端会通知用户。
+#### 模式 B：自带模型 —— 不使用 IDE 模型，直连你自己的 LLM API
+
+**适合**：你想用自己的模型（OpenAI、腾讯混元 Hy3、本地运行的 Ollama、vLLM 等），不经过 IDE。
+
+需要设置 4 个环境变量。**注意**：环境变量的设置方式取决于你的操作系统，请对号入座。
+
+**macOS / Linux（bash）**：
+
+```bash
+export LLM_MODE=direct
+export LLM_API_BASE="https://api.openai.com/v1"
+export LLM_API_KEY="sk-你的密钥"
+export LLM_MODEL_NAME="gpt-4o-mini"
+node dist/index.js
+```
+
+**Windows PowerShell**：
+
+```powershell
+$env:LLM_MODE = "direct"
+$env:LLM_API_BASE = "https://api.openai.com/v1"
+$env:LLM_API_KEY = "sk-你的密钥"
+$env:LLM_MODEL_NAME = "gpt-4o-mini"
+node dist/index.js
+```
+
+**Windows 命令提示符（CMD）**：
+
+```cmd
+set LLM_MODE=direct
+set LLM_API_BASE=https://api.openai.com/v1
+set LLM_API_KEY=sk-你的密钥
+set LLM_MODEL_NAME=gpt-4o-mini
+node dist/index.js
+```
+
+**常见模型提供商参考配置**（`LLM_API_BASE` + `LLM_MODEL_NAME` 的取值）：
+
+| 模型提供商 | `LLM_API_BASE` | `LLM_MODEL_NAME` 示例 |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini`、`gpt-4o` |
+| 腾讯混元 Hy3（官方 API） | `https://api.hunyuan.tencent.com/v1` | `hy3` |
+| Ollama（本地） | `http://localhost:11434/v1` | `qwen2.5:32b`、`llama3.1:8b` |
+| vLLM（本地） | `http://127.0.0.1:8000/v1` | `<你的模型名>` |
+
+> **本地模型（Ollama/vLLM）提示**：这类服务不校验 key，但自动检测要求 key 不能是 `EMPTY`，建议填 `ollama` 或 `local` 这类任意字符串，并显式设置 `LLM_MODE=direct`（见下文自动检测说明）。
+
+**在 Cursor 中使用模式 B**（在 `.cursor/mcp.json` 里直接写环境变量）：
+
+```json
+{
+  "mcpServers": {
+    "cognitive-exoskeleton": {
+      "command": "node",
+      "args": ["<项目路径>/dist/index.js"],
+      "env": {
+        "LLM_MODE": "direct",
+        "LLM_API_BASE": "https://api.openai.com/v1",
+        "LLM_API_KEY": "sk-你的密钥",
+        "LLM_MODEL_NAME": "gpt-4o-mini"
+      }
+    }
+  }
+}
+```
+
+**如何验证配置生效**：启动服务后看日志——显示 `Mode: direct — <你的API地址> / <模型名>` 说明直连成功；显示 `Mode: sampling` 说明仍在使用 IDE 模型。
+
+---
+
+### 环境变量总表
+
+| 变量 | 说明 | 默认值 |
+| --- | --- | --- |
+| `LLM_MODE` | LLM 调用模式：`sampling`（借用 IDE 模型）或 `direct`（直连 API） | 自动检测* |
+| `LLM_API_BASE` | (Direct) OpenAI 兼容 API 的基础 URL | `http://127.0.0.1:8000/v1` |
+| `LLM_API_KEY` | (Direct) LLM 提供商的 API Key | `EMPTY` |
+| `LLM_MODEL_NAME` | (Direct) 使用的模型名称 | `gpt-4o-mini` |
+| `COGNITIVE_DB_PATH` | SQLite 数据库文件路径 | `./cognitive.db` |
+
+> \* **自动检测逻辑**：如果 `LLM_API_BASE` 和 `LLM_API_KEY` **都已配置**（且 key 不是 `EMPTY`），则使用 `direct`；否则使用 `sampling`。想强制指定某个模式，就显式设置 `LLM_MODE`。
+
+---
 
 ### 使用示例
 
@@ -168,6 +240,8 @@ codebuddy mcp add cognitive-exoskeleton \
 → "大脑的神经可塑性类似于分布式系统的自适应拓扑。突触修剪 ≈ 节点退役。"
 ```
 
+---
+
 ### 架构
 
 ```
@@ -186,10 +260,12 @@ MCP 客户端 (Cursor / CodeBuddy / Cline)
 └──────────────────────────────────────┘
 ```
 
+---
+
 ### 知识图谱数据模型
 
 ```sql
-nodes (id, type, name, summary, domain, source_file,
+nodes (id, type, name, summary, domain, aliases, source_file,
        first_seen_at, last_seen_at, mention_count)
 edges (id, source_id, target_id, relation, confidence, evidence, created_at)
 notes_index (file_path, content_hash, node_ids, last_ingested_at)
@@ -198,9 +274,41 @@ topology_cache (snapshot_at, isolated_clusters, bridge_nodes, density_map, summa
 serendipity_log (id, node_a, node_b, hypothesis, user_feedback, created_at)
 ```
 
+- **aliases（节点别名）**：多语言支持——中文笔记抽取的实体可携带英文译名等别名，检索时中英文都能命中同一节点
+- **relation（关系）**：17 种枚举（`supports` / `contradicts` / `evolves_from` / `references` / `related_to` / `co_occurs` / `part_of` / `instance_of` / `causes` / `enables` / `requires` / `uses` / `implements` / `specializes` / `replaces` / `inspires` / `influences`），LLM 抽取的未识别关系会宽容降级为 `related_to`，不会中断导入
+
 ---
 
+### 版本说明
 
+**当前版本：v1.0.0**
+
+| 版本 | 日期 | 主要内容 |
+| --- | --- | --- |
+| **v1.0.0** | 2026-03 | 首个正式版本 |
+
+**v1.0.0 包含的能力**：
+
+- **功能**：8 个 MCP 工具（导入/问答/召回/关联发现/盲点检测/拓扑分析/概念演化/灵感碰撞）
+- **模型接入**：双模式 LLM —— 零配置 Sampling（借用 IDE 模型）+ Direct（直连 OpenAI 兼容 API）
+- **知识图谱**：17 种关系枚举（含同义词归一化）、节点别名（aliases）多语言检索、`(name, domain)` 唯一性约束、自动 schema 迁移
+- **中文支持**：中文关键词提取（Unicode 属性）、中文关系动词映射（导致→causes 等）、实体名保留原文语言
+- **健壮性**：LLM 输出 zod 校验（宽容解析）、长笔记输出截断自动修复（括号补全 + 动态 token 预算）、工具级错误兜底、数据库原子写入
+- **存储**：SQLite 纯本地（sql.js / WASM，零原生依赖）、无第三方网络请求
+
+**变更历史**（git 提交记录）：
+
+| 提交 | 说明 |
+| --- | --- |
+| `3038de5` | 初始版本 |
+| `6c23ff1` | 文档与 .gitignore 完善 |
+| `471a738` | 新增 LLM 双模式（Sampling/Direct），默认零配置 |
+| `1ae622c` | 检索/校验/持久化加固（中文检索、zod 校验、错误兜底） |
+| `79e77eb` | 关系枚举扩展至 17 种 + 同义词归一化 |
+| `fa89a6d` | 截断 JSON 自动修复 + 动态 token 预算 |
+| 待发布 | 节点别名（aliases）多语言检索 |
+
+---
 
 ## English
 
@@ -210,22 +318,22 @@ Cognitive Exoskeleton is not just a search tool. It builds a dynamic knowledge g
 - Zero-config: uses your MCP client's LLM via Sampling protocol — or bring your own API (Hy3, OpenAI, Ollama, vLLM, etc.)
 - Plug-and-play: compatible with Cursor, CodeBuddy, WorkBuddy, Cline, and other MCP clients
 
+**Version: v1.0.0**
+
 ### Features
 
 **8 MCP tools** organized in four layers:
 
-
-| Layer           | Tool                         | What it does                                                             |
-| --------------- | ---------------------------- | ------------------------------------------------------------------------ |
-| **Foundation**  | `ingest_note`                | Extract entities + relationships from notes into the knowledge graph     |
-|                 | `query_mind`                 | Answer questions using your knowledge graph (shallow/deep retrieval)     |
-|                 | `recall_context`             | Surface forgotten notes related to what you're writing                   |
-| **Reasoning**   | `discover_connections`       | Find hidden connections between knowledge from different domains         |
-|                 | `detect_blindspots`          | Identify gaps, contradictions, and missing perspectives                  |
-|                 | `analyze_cognitive_topology` | Generate a "cognitive portrait" — islands, bridges, dense/sparse regions |
-| **Temporal**    | `trace_concept_evolution`    | Track how your understanding of a concept changes over time              |
-| **Inspiration** | `spark_serendipity`          | Create creative sparks by colliding concepts from different domains      |
-
+| Layer | Tool | What it does |
+| --- | --- | --- |
+| **Foundation** | `ingest_note` | Extract entities + relationships from notes into the knowledge graph |
+| | `query_mind` | Answer questions using your knowledge graph (shallow/deep retrieval) |
+| | `recall_context` | Surface forgotten notes related to what you're writing |
+| **Reasoning** | `discover_connections` | Find hidden connections between knowledge from different domains |
+| | `detect_blindspots` | Identify gaps, contradictions, and missing perspectives |
+| | `analyze_cognitive_topology` | Generate a "cognitive portrait" — islands, bridges, dense/sparse regions |
+| **Temporal** | `trace_concept_evolution` | Track how your understanding of a concept changes over time |
+| **Inspiration** | `spark_serendipity` | Create creative sparks by colliding concepts from different domains |
 
 ### Quick Start
 
@@ -234,55 +342,20 @@ Cognitive Exoskeleton is not just a search tool. It builds a dynamic knowledge g
 ```bash
 git clone https://github.com/hanjiang-215/cognitive-exoskeleton-mcp.git
 cd cognitive-exoskeleton-mcp
-npm install && npm run build
+npm install
+npm run build
 
 # Zero-config — automatically reuses your MCP client's LLM via Sampling
 node dist/index.js
 ```
 
-> **Zero-config mode**: By default, the MCP Server delegates LLM calls to the client (Cursor, WorkBuddy, etc.) via MCP Sampling protocol. No separate API key needed.
+> **Zero-config mode**: The MCP Server delegates LLM calls to the client (Cursor, WorkBuddy, etc.) via MCP Sampling protocol. No separate API key needed.
 
-For a standalone LLM API, switch to **Direct mode**:
+### Choosing Your Model
 
-```bash
-export LLM_MODE=direct
-export LLM_API_BASE="http://127.0.0.1:8000/v1"
-export LLM_API_KEY="EMPTY"
-export LLM_MODEL_NAME="hy3"
-node dist/index.js
-```
+**Mode A — zero-config (recommended)**: reuse your IDE's built-in model via MCP Sampling.
 
-### Environment Variables
-
-
-| Variable            | Description                                                   | Default                    |
-| ------------------- | ------------------------------------------------------------- | -------------------------- |
-| `LLM_MODE`          | LLM mode: `sampling` (delegate to client) or `direct` (API)   | auto-detected*             |
-| `LLM_API_BASE`      | (Direct) OpenAI-compatible API base URL                        | `http://127.0.0.1:8000/v1` |
-| `LLM_API_KEY`       | (Direct) API key for the LLM provider                          | `EMPTY`                    |
-| `LLM_MODEL_NAME`    | (Direct) Model name to use                                     | `gpt-4o-mini`              |
-| `COGNITIVE_DB_PATH` | SQLite database file path                                      | `./cognitive.db`           |
-
-> \* Auto-detection: if `LLM_API_BASE` and `LLM_API_KEY` are both set (and key is not `EMPTY`), uses `direct`; otherwise uses `sampling`.
-
-
-### Multi-Model Support (Direct mode only)
-
-Only needed when `LLM_MODE=direct`:
-
-
-| Provider           | `LLM_API_BASE`                       | `LLM_MODEL_NAME` |
-| ------------------ | ------------------------------------ | ---------------- |
-| Hy3 (local vLLM)   | `http://127.0.0.1:8000/v1`           | `hy3`            |
-| Hy3 (official API) | `https://api.hunyuan.tencent.com/v1` | `hy3`            |
-| OpenAI             | `https://api.openai.com/v1`          | `gpt-4o`         |
-| Ollama (local)     | `http://localhost:11434/v1`          | `qwen2.5:32b`    |
-| vLLM (any model)   | `http://127.0.0.1:8000/v1`           | `<model-name>`   |
-
-
-### MCP Client Setup
-
-**Cursor** — `.cursor/mcp.json` (zero-config, reuses Cursor's model):
+**Cursor** — `.cursor/mcp.json`:
 
 ```json
 {
@@ -307,7 +380,62 @@ codebuddy mcp add cognitive-exoskeleton \
   --env LLM_MODE=sampling
 ```
 
-> **Sampling mode**: The MCP Server delegates LLM calls to the client via the MCP Sampling protocol. The client uses its own configured model (e.g. Cursor's Claude/GPT). No separate API key needed.
+**Mode B — bring your own LLM API** (Direct mode, does not use the IDE's model):
+
+macOS / Linux (bash):
+
+```bash
+export LLM_MODE=direct
+export LLM_API_BASE="https://api.openai.com/v1"
+export LLM_API_KEY="sk-..."
+export LLM_MODEL_NAME="gpt-4o-mini"
+node dist/index.js
+```
+
+Windows PowerShell:
+
+```powershell
+$env:LLM_MODE = "direct"
+$env:LLM_API_BASE = "https://api.openai.com/v1"
+$env:LLM_API_KEY = "sk-..."
+$env:LLM_MODEL_NAME = "gpt-4o-mini"
+node dist/index.js
+```
+
+Windows CMD:
+
+```cmd
+set LLM_MODE=direct
+set LLM_API_BASE=https://api.openai.com/v1
+set LLM_API_KEY=sk-...
+set LLM_MODEL_NAME=gpt-4o-mini
+node dist/index.js
+```
+
+**Provider reference** (Direct mode only):
+
+| Provider | `LLM_API_BASE` | `LLM_MODEL_NAME` |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` / `gpt-4o` |
+| Tencent Hunyuan Hy3 (official) | `https://api.hunyuan.tencent.com/v1` | `hy3` |
+| Ollama (local) | `http://localhost:11434/v1` | `qwen2.5:32b` |
+| vLLM (local) | `http://127.0.0.1:8000/v1` | `<model-name>` |
+
+> For local models (Ollama/vLLM), the API key is not validated — use any non-`EMPTY` string (e.g. `ollama`) and set `LLM_MODE=direct` explicitly.
+
+Verify: the startup log prints `Mode: direct — <base> / <model>` for Direct mode, or `Mode: sampling` for Sampling mode.
+
+### Environment Variables
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `LLM_MODE` | LLM mode: `sampling` (delegate to client) or `direct` (API) | auto-detected* |
+| `LLM_API_BASE` | (Direct) OpenAI-compatible API base URL | `http://127.0.0.1:8000/v1` |
+| `LLM_API_KEY` | (Direct) API key for the LLM provider | `EMPTY` |
+| `LLM_MODEL_NAME` | (Direct) Model name to use | `gpt-4o-mini` |
+| `COGNITIVE_DB_PATH` | SQLite database file path | `./cognitive.db` |
+
+> \* Auto-detection: if `LLM_API_BASE` and `LLM_API_KEY` are both set (and key is not `EMPTY`), uses `direct`; otherwise uses `sampling`. Set `LLM_MODE` explicitly to force a mode.
 
 ### Usage Examples
 
@@ -366,6 +494,7 @@ User: Spark between distributed-systems and neuroscience
 ```
 MCP Client (Cursor / CodeBuddy / Cline)
         │ stdio (JSON-RPC)
+        │ + sampling/createMessage (Sampling mode)
         ▼
 ┌──────────────────────────────────────┐
 │  Cognitive Exoskeleton MCP Server   │
@@ -376,14 +505,14 @@ MCP Client (Cursor / CodeBuddy / Cline)
 │  (SQLite + graph algorithms)         │
 │         │                            │
 │  LLM Client                          │
-│  (Model-agnostic, OpenAI-compatible) │
+│  (Sampling / Direct dual mode)       │
 └──────────────────────────────────────┘
 ```
 
 ### Knowledge Graph Schema
 
 ```sql
-nodes (id, type, name, summary, domain, source_file,
+nodes (id, type, name, summary, domain, aliases, source_file,
        first_seen_at, last_seen_at, mention_count)
 edges (id, source_id, target_id, relation, confidence, evidence, created_at)
 notes_index (file_path, content_hash, node_ids, last_ingested_at)
@@ -391,6 +520,20 @@ evolution_log (id, node_id, snapshot_at, belief_summary, trigger_note, source_fi
 topology_cache (snapshot_at, isolated_clusters, bridge_nodes, density_map, summary)
 serendipity_log (id, node_a, node_b, hypothesis, user_feedback, created_at)
 ```
+
+- **aliases**: multilingual support — Chinese entities can carry English translations, retrievable in either language
+- **relation**: 17 enums; unrecognized relations from the LLM degrade gracefully to `related_to`
+
+### Version
+
+**Current: v1.0.0** (2026-03) — first official release:
+
+- 8 MCP tools (ingest / query / recall / discover / blindspots / topology / evolution / serendipity)
+- Dual-mode LLM: zero-config Sampling + Direct (OpenAI-compatible API)
+- 17 relation enums with synonym normalization; node aliases for multilingual retrieval; auto schema migration
+- Chinese support: Unicode keyword extraction, Chinese relation verbs, original-language entity naming
+- Robustness: zod validation, truncated-JSON auto-repair with dynamic token budget, tool error guard, atomic DB writes
+- Local SQLite storage (sql.js/WASM), zero native deps
 
 ### Development
 
@@ -403,16 +546,14 @@ node dist/index.js   # Start server
 
 ### Tech Stack
 
-
-| Component | Choice                      | Notes                          |
-| --------- | --------------------------- | ------------------------------ |
-| Language  | TypeScript                  | Node.js >= 18                  |
-| MCP SDK   | `@modelcontextprotocol/sdk` | Official TypeScript SDK        |
-| Database  | SQLite (sql.js)             | Pure JS/WASM, zero native deps |
-| LLM       | `openai` SDK                | OpenAI-compatible, any model   |
-| Markdown  | `gray-matter`               | Frontmatter parsing            |
-| Bundler   | `tsup`                      | Single-file bundle             |
-
+| Component | Choice | Notes |
+| --- | --- | --- |
+| Language | TypeScript | Node.js >= 18 |
+| MCP SDK | `@modelcontextprotocol/sdk` | Official TypeScript SDK |
+| Database | SQLite (sql.js) | Pure JS/WASM, zero native deps |
+| LLM | `openai` SDK | OpenAI-compatible, any model |
+| Markdown | `gray-matter` | Frontmatter parsing |
+| Bundler | `tsup` | Single-file bundle |
 
 ### Demo Walkthrough
 
@@ -444,4 +585,3 @@ Apache-2.0
 Copyright (c) 2026 hanjiang-215. All rights reserved.
 
 本项目由 hanjiang-215 制作。
-

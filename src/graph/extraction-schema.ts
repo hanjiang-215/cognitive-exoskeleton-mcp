@@ -139,6 +139,7 @@ export const ExtractedNodeSchema = z.object({
   name: z.string().min(1),
   summary: z.string().default(""),
   domain: z.string().default("general"),
+  aliases: z.array(z.string()).default([]),
 });
 
 export const ExtractedEdgeSchema = z.object({

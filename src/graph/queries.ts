@@ -3,7 +3,7 @@
  */
 
 import type { Database } from "sql.js";
-import { selectAll } from "./sql.js";
+import { selectAll, selectNodes } from "./sql.js";
 import type {
   GraphNode,
   GraphEdge,
@@ -23,7 +23,7 @@ export function getSubgraph1Hop(db: Database, seedNodeIds: string[]): SubgraphRe
   const placeholders = seedNodeIds.map(() => "?").join(",");
 
   // Get seed nodes + their direct neighbors
-  const nodes = selectAll<GraphNode>(
+  const nodes = selectNodes(
     db,
     `SELECT DISTINCT n.* FROM nodes n
      WHERE n.id IN (${placeholders})
@@ -61,7 +61,7 @@ export function getSubgraph2Hop(db: Database, seedNodeIds: string[]): SubgraphRe
   // Then expand by 1 more hop
   const placeholders = hop1Ids.map(() => "?").join(",");
 
-  const nodes = selectAll<GraphNode>(
+  const nodes = selectNodes(
     db,
     `SELECT DISTINCT n.* FROM nodes n
      WHERE n.id IN (${placeholders})
@@ -97,7 +97,7 @@ export function findPaths(
   maxHops = 3,
 ): PathResult[] {
   // Load the whole graph into memory once (avoids N+1 node lookups inside DFS)
-  const allNodes = selectAll<GraphNode>(db, `SELECT * FROM nodes`);
+  const allNodes = selectNodes(db, `SELECT * FROM nodes`);
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
 
   const startNode = nodeMap.get(fromNodeId);
@@ -157,7 +157,7 @@ export function findCrossDomainPaths(
   const results: Array<{ nodeA: GraphNode; nodeB: GraphNode; bridge: GraphNode; pathEdges: GraphEdge[] }> = [];
 
   // Load nodes + per-node edges once (avoids N+1 per-node edge scans)
-  const allNodes = selectAll<GraphNode>(db, `SELECT * FROM nodes`);
+  const allNodes = selectNodes(db, `SELECT * FROM nodes`);
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
 
   const edgesByNode = new Map<string, GraphEdge[]>();
@@ -222,7 +222,7 @@ export function findCrossDomainPaths(
  * Analyze the graph topology: connected components, bridge nodes, domain density.
  */
 export function analyzeTopology(db: Database): TopologyResult {
-  const allNodes = selectAll<GraphNode>(db, `SELECT * FROM nodes`);
+  const allNodes = selectNodes(db, `SELECT * FROM nodes`);
   const allEdges = selectAll<GraphEdge>(db, `SELECT * FROM edges`);
 
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
@@ -346,16 +346,16 @@ export function analyzeTopology(db: Database): TopologyResult {
 // ─── Keyword search → node IDs ─────────────────────────────
 
 /**
- * Search nodes by keyword and return their IDs.
- * Used by tools that need to resolve text queries to graph nodes.
+ * Search nodes by keyword (name, summary, or aliases) and return their IDs.
+ * aliases 支持多语言检索：中文笔记抽取的实体可用其英文译名命中。
  */
 export function searchNodeIds(db: Database, keywords: string[], limit = 20): string[] {
   if (keywords.length === 0) return [];
 
-  const conditions = keywords.map(() => `(name LIKE ? OR summary LIKE ?)`).join(" OR ");
+  const conditions = keywords.map(() => `(name LIKE ? OR summary LIKE ? OR aliases LIKE ?)`).join(" OR ");
   const params: string[] = [];
   for (const kw of keywords) {
-    params.push(`%${kw}%`, `%${kw}%`);
+    params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`);
   }
 
   const rows = selectAll<GraphNode>(

@@ -539,3 +539,128 @@ describe("Schema migration (relation CHECK expansion)", () => {
     }
   });
 });
+
+// ─── Node aliases（多语言检索支持）────────────────────────────
+
+describe("Node aliases", () => {
+  it("stores and reads aliases", () => {
+    const { node } = upsertNode(db, {
+      name: "共识算法",
+      type: "concept",
+      summary: "分布式系统一致性核心",
+      domain: "distributed-systems",
+      aliases: ["Consensus Algorithm", "共识"],
+    });
+    assert.deepEqual(node.aliases, ["Consensus Algorithm", "共识"]);
+    assert.deepEqual(getNodeByName(db, "共识算法")!.aliases, ["Consensus Algorithm", "共识"]);
+  });
+
+  it("merges aliases on re-upsert without duplicates", () => {
+    upsertNode(db, {
+      name: "Raft", type: "concept", summary: "v1", domain: "ds",
+      aliases: ["Raft共识", "共识算法"],
+    });
+    const { node } = upsertNode(db, {
+      name: "Raft", type: "concept", summary: "v2", domain: "ds",
+      aliases: ["共识算法", "Raft protocol"],
+    });
+    assert.deepEqual(node.aliases, ["Raft共识", "共识算法", "Raft protocol"]);
+  });
+
+  it("defaults to empty aliases when not provided", () => {
+    const { node } = upsertNode(db, { name: "Paxos", type: "concept", summary: "", domain: "ds" });
+    assert.deepEqual(node.aliases, []);
+  });
+
+  it("ExtractionResultSchema defaults aliases to []", async () => {
+    const { ExtractionResultSchema } = await import("../src/graph/extraction-schema.js");
+    const parsed = ExtractionResultSchema.safeParse({
+      nodes: [{ type: "concept", name: "A", summary: "s", domain: "d" }],
+      edges: [],
+    });
+    assert.ok(parsed.success);
+    assert.deepEqual(parsed.data.nodes[0].aliases, []);
+  });
+
+  it("searchNodeIds matches aliases (cross-language retrieval)", () => {
+    // 中文笔记抽取的节点，英文译名可命中；英文节点不受影响
+    upsertNode(db, {
+      name: "共识算法", type: "concept", summary: "分布式一致", domain: "ds",
+      aliases: ["Consensus Algorithm"],
+    });
+    upsertNode(db, { name: "Raft", type: "concept", summary: "log replication", domain: "ds" });
+
+    const byZh = searchNodeIds(db, ["共识"]);
+    assert.equal(byZh.length, 1);
+    const byEn = searchNodeIds(db, ["Consensus"]);
+    assert.equal(byEn.length, 1);
+  });
+
+  it("searchNodes matches aliases too", () => {
+    upsertNode(db, {
+      name: "拜占庭问题", type: "concept", summary: "容错问题", domain: "ds",
+      aliases: ["Byzantine Generals Problem"],
+    });
+    const results = searchNodes(db, "Byzantine");
+    assert.equal(results.length, 1);
+    assert.equal(results[0].name, "拜占庭问题");
+  });
+
+  it("ingestExtraction persists aliases from LLM extraction", () => {
+    const extraction: ExtractionResult = {
+      nodes: [
+        {
+          type: "concept", name: "拜占庭问题", summary: "容错", domain: "ds",
+          aliases: ["Byzantine Generals Problem", "BGP"],
+        },
+      ],
+      edges: [],
+    };
+    ingestExtraction(db, extraction, "note.md");
+    const node = getNodeByName(db, "拜占庭问题")!;
+    assert.deepEqual(node.aliases, ["Byzantine Generals Problem", "BGP"]);
+  });
+});
+
+// ─── Schema migration: nodes aliases 列 ─────────────────────
+
+describe("Schema migration (nodes aliases column)", () => {
+  const OLD_NODES_DB = "./test-migrate-nodes.db";
+
+  it("adds aliases column to legacy nodes table, keeping existing data", async () => {
+    if (fs.existsSync(OLD_NODES_DB)) fs.unlinkSync(OLD_NODES_DB);
+    const SQL = await initSqlJs();
+    const old = new SQL.Database();
+    old.run(`CREATE TABLE nodes (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      domain TEXT NOT NULL DEFAULT 'general',
+      source_file TEXT DEFAULT '',
+      first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      mention_count INTEGER NOT NULL DEFAULT 1
+    )`);
+    old.run(`INSERT INTO nodes (id, type, name, domain) VALUES ('n1', 'concept', 'CAP Theorem', 'ds')`);
+    saveDatabase(old, OLD_NODES_DB);
+    old.close();
+
+    const migrated = await initDatabase(OLD_NODES_DB);
+    try {
+      // 旧数据保留，aliases 回退空数组
+      const node = getNodeByName(migrated, "CAP Theorem")!;
+      assert.equal(node.domain, "ds");
+      assert.deepEqual(node.aliases, []);
+      // 新写入带 aliases 正常
+      upsertNode(migrated, {
+        name: "新节点", type: "concept", summary: "", domain: "ds",
+        aliases: ["New Node"],
+      });
+      assert.deepEqual(getNodeByName(migrated, "新节点")!.aliases, ["New Node"]);
+    } finally {
+      migrated.close();
+      if (fs.existsSync(OLD_NODES_DB)) fs.unlinkSync(OLD_NODES_DB);
+    }
+  });
+});

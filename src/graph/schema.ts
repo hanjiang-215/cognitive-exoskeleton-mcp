@@ -46,6 +46,9 @@ export async function initDatabase(dbPath: string): Promise<DB> {
   // 迁移：旧库（8 种关系 CHECK）重建 edges 表以支持新枚举
   migrateEdgesRelationCheck(db);
 
+  // 迁移：旧库 nodes 表无 aliases 列，ADD COLUMN 补上（SQLite 不支持条件 DDL，用哨兵检测）
+  migrateNodeAliases(db);
+
   // name+domain 唯一索引作为 upsertNode SELECT-then-INSERT 的并发防线。
   // 历史脏库若已存在重复 name+domain，索引创建会失败——仅警告，不阻断启动。
   try {
@@ -55,6 +58,16 @@ export async function initDatabase(dbPath: string): Promise<DB> {
   }
 
   return db;
+}
+
+/**
+ * 迁移：为旧库 nodes 表补 aliases 列（JSON 数组字符串，默认 '[]'）。
+ * SQLite 的 ALTER TABLE ADD COLUMN 不破坏现有数据，比重建表更轻。
+ */
+function migrateNodeAliases(db: DB): void {
+  const cols = db.exec(`PRAGMA table_info(nodes)`)[0]?.values ?? [];
+  if (cols.some((c) => c[1] === "aliases")) return; // 已有该列
+  db.run(`ALTER TABLE nodes ADD COLUMN aliases TEXT NOT NULL DEFAULT '[]'`);
 }
 
 /**
@@ -118,6 +131,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     name          TEXT NOT NULL,
     summary       TEXT NOT NULL DEFAULT '',
     domain        TEXT NOT NULL DEFAULT 'general',
+    aliases       TEXT NOT NULL DEFAULT '[]',
     source_file   TEXT DEFAULT '',
     first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
     last_seen_at  TEXT NOT NULL DEFAULT (datetime('now')),

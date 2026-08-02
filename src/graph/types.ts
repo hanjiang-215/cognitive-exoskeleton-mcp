@@ -12,6 +12,8 @@ export interface GraphNode {
   name: string;
   summary: string;
   domain: string;
+  /** 别名（含其他语言译名），检索时与 name 一起匹配；DB 中存 JSON 数组字符串。 */
+  aliases: string[];
   source_file: string;
   first_seen_at: string;
   last_seen_at: string;
@@ -93,6 +95,8 @@ export interface ExtractedNode {
   name: string;
   summary: string;
   domain: string;
+  /** 常见别名/其他语言译名（如 "共识算法" 的别名为 ["Consensus Algorithm"]）。 */
+  aliases?: string[];
 }
 
 export interface ExtractedEdge {

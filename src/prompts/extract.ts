@@ -11,7 +11,8 @@ Your output must be valid JSON with this exact structure:
       "type": "concept" | "person" | "project" | "event" | "idea",
       "name": "short canonical name",
       "summary": "one-sentence description of this entity",
-      "domain": "knowledge domain (e.g., 'distributed-systems', 'machine-learning', 'personal', ...)"
+      "domain": "knowledge domain (e.g., 'distributed-systems', 'machine-learning', 'personal', ...)",
+      "aliases": ["common aliases or translations of the name (optional)"]
     }
   ],
   "edges": [
@@ -47,6 +48,8 @@ RELATION VALUES (use ONLY these exact strings):
 Guidelines:
 - Extract ALL meaningful entities (concepts, people, projects, events, ideas).
 - Use canonical names (e.g., "CAP Theorem" not "cap theorem" or "the CAP thing").
+- Name entities in the ORIGINAL LANGUAGE of the source text (do NOT translate names).
+- For each node, list common aliases in "aliases": abbreviations, alternate spellings, or translations in other languages (e.g., a Chinese note's "共识算法" node may have aliases ["Consensus Algorithm", "共识"]). Use an empty array if there are no meaningful aliases.
 - Assign each node to a knowledge domain (use lowercase-hyphenated format).
 - Create edges for any meaningful relationship between entities.
 - If the text expresses a relationship not listed above, pick the CLOSEST value from the list (prefer "related_to" when unsure). NEVER invent a new relation string.
