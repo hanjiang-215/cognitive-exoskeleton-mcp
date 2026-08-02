@@ -84,12 +84,22 @@ describe("ExtractionResultSchema — LLM output validation", () => {
     assert.equal(r.success, false);
   });
 
-  it("rejects invalid relation type", () => {
+  it("normalizes unknown relation instead of rejecting (lenient)", () => {
     const r = ExtractionResultSchema.safeParse({
       nodes: [],
       edges: [{ source: "A", target: "B", relation: "loves" }],
     });
-    assert.equal(r.success, false);
+    assert.equal(r.success, true);
+    assert.equal(r.data.edges[0].relation, "related_to");
+  });
+
+  it("maps relation synonyms to canonical values", () => {
+    const r = ExtractionResultSchema.safeParse({
+      nodes: [],
+      edges: [{ source: "A", target: "B", relation: "cites" }],
+    });
+    assert.equal(r.success, true);
+    if (r.success) assert.equal(r.data.edges[0].relation, "references");
   });
 
   it("rejects empty node name", () => {

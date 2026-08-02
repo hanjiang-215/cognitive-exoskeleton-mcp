@@ -43,7 +43,7 @@ import {
   analyzeTopology,
   searchNodeIds,
 } from "../src/graph/queries.js";
-import type { ExtractionResult } from "../src/graph/types.js";
+import { RELATION_TYPES, type ExtractionResult } from "../src/graph/types.js";
 
 const EDGE_DB = "./test-edge-cognitive.db";
 let db: Database;
@@ -234,23 +234,19 @@ describe("Edge: All node types and relation types", () => {
     assert.equal(getAllNodes(db).length, 5);
   });
 
-  it("all 8 relation types are valid", () => {
+  it("all 17 relation types are valid", () => {
     const idA = upsertNode(db, { name: "Hub", type: "concept", summary: "", domain: "test" }).node.id;
-    const relations = [
-      "supports", "contradicts", "evolves_from", "references",
-      "related_to", "co_occurs", "part_of", "instance_of",
-    ] as const;
 
-    for (let i = 0; i < relations.length; i++) {
+    for (let i = 0; i < RELATION_TYPES.length; i++) {
       const idB = upsertNode(db, { name: `Target-${i}`, type: "concept", summary: "", domain: "test" }).node.id;
-      addEdge(db, { source_id: idA, target_id: idB, relation: relations[i], confidence: 0.5, evidence: "" });
+      addEdge(db, { source_id: idA, target_id: idB, relation: RELATION_TYPES[i], confidence: 0.5, evidence: "" });
     }
 
-    assert.equal(getGraphStats(db).totalEdges, 8);
+    assert.equal(getGraphStats(db).totalEdges, RELATION_TYPES.length);
     const edges = getEdgesForNode(db, idA);
-    assert.equal(edges.length, 8);
+    assert.equal(edges.length, RELATION_TYPES.length);
     const edgeRelations = new Set(edges.map((e) => e.relation));
-    for (const r of relations) assert.ok(edgeRelations.has(r));
+    for (const r of RELATION_TYPES) assert.ok(edgeRelations.has(r));
   });
 });
 

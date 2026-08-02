@@ -6,8 +6,23 @@
 import initSqlJs, { type Database } from "sql.js";
 import fs from "node:fs";
 import path from "node:path";
+import { RELATION_TYPES } from "./types.js";
 
 export type DB = Database;
+
+// 关系枚举 CHECK 子句从 RELATION_TYPES 生成，保持单一事实来源
+const RELATION_CHECK = `CHECK(relation IN (${RELATION_TYPES.map((r) => `'${r}'`).join(", ")}))`;
+
+// 迁移用：重建 edges 表的完整 DDL（与 SCHEMA_SQL 保持一致）
+const EDGES_TABLE_DDL = `CREATE TABLE edges_new (
+    id          TEXT PRIMARY KEY,
+    source_id   TEXT NOT NULL REFERENCES nodes(id),
+    target_id   TEXT NOT NULL REFERENCES nodes(id),
+    relation    TEXT NOT NULL ${RELATION_CHECK},
+    confidence  REAL NOT NULL DEFAULT 0.5,
+    evidence    TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);`;
 
 /**
  * Initialize the SQLite database from file (or create a new one).
@@ -28,6 +43,9 @@ export async function initDatabase(dbPath: string): Promise<DB> {
 
   db.run(SCHEMA_SQL);
 
+  // 迁移：旧库（8 种关系 CHECK）重建 edges 表以支持新枚举
+  migrateEdgesRelationCheck(db);
+
   // name+domain 唯一索引作为 upsertNode SELECT-then-INSERT 的并发防线。
   // 历史脏库若已存在重复 name+domain，索引创建会失败——仅警告，不阻断启动。
   try {
@@ -37,6 +55,40 @@ export async function initDatabase(dbPath: string): Promise<DB> {
   }
 
   return db;
+}
+
+/**
+ * 迁移 edges 表的 relation CHECK 约束。
+ *
+ * SQLite 不支持 ALTER TABLE 修改 CHECK，只能重建表：
+ *   CREATE edges_new → INSERT SELECT（数据搬移）→ DROP edges → RENAME
+ *
+ * 哨兵检测：新枚举中的 'influences' 不在旧 8 种 CHECK 内。
+ * 重建后索引会被 DROP TABLE 连带删除，需重新创建。
+ */
+function migrateEdgesRelationCheck(db: DB): void {
+  const rows = db.exec(`SELECT sql FROM sqlite_master WHERE type='table' AND name='edges'`);
+  const tableSql = rows[0]?.values?.[0]?.[0] as string | undefined;
+  if (tableSql && tableSql.includes("influences")) return; // 已是最新 schema
+
+  db.run("BEGIN");
+  try {
+    db.run(`DROP TABLE IF EXISTS edges_new`);
+    db.run(EDGES_TABLE_DDL);
+    db.run(
+      `INSERT INTO edges_new (id, source_id, target_id, relation, confidence, evidence, created_at)
+       SELECT id, source_id, target_id, relation, confidence, evidence, created_at FROM edges`,
+    );
+    db.run(`DROP TABLE edges`);
+    db.run(`ALTER TABLE edges_new RENAME TO edges`);
+    // DROP TABLE 连带删除了 edges 上的索引，重建
+    db.run(`CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)`);
+    db.run("COMMIT");
+  } catch (err) {
+    db.run("ROLLBACK");
+    console.error("[db] WARNING: edges table migration failed:", err);
+  }
 }
 
 /**
@@ -77,10 +129,7 @@ CREATE TABLE IF NOT EXISTS edges (
     id          TEXT PRIMARY KEY,
     source_id   TEXT NOT NULL REFERENCES nodes(id),
     target_id   TEXT NOT NULL REFERENCES nodes(id),
-    relation    TEXT NOT NULL CHECK(relation IN (
-        'supports','contradicts','evolves_from','references',
-        'related_to','co_occurs','part_of','instance_of'
-    )),
+    relation    TEXT NOT NULL ${RELATION_CHECK},
     confidence  REAL NOT NULL DEFAULT 0.5,
     evidence    TEXT NOT NULL DEFAULT '',
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))

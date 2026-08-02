@@ -9,6 +9,7 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import initSqlJs from "sql.js";
 import { initDatabase, saveDatabase } from "../src/graph/schema.js";
 import type { Database } from "sql.js";
 import {
@@ -474,5 +475,67 @@ describe("Database persistence", () => {
     assert.ok(node);
     assert.equal(node!.summary, "will survive");
     db2.close();
+  });
+});
+
+// ─── Schema migration: edges CHECK 扩展 ────────────────────
+
+describe("Schema migration (relation CHECK expansion)", () => {
+  const MIGRATE_DB = "./test-migrate.db";
+  const OLD_CHECK = `CHECK(relation IN ('supports','contradicts','evolves_from','references','related_to','co_occurs','part_of','instance_of'))`;
+
+  async function buildOldSchemaDb(): Promise<Database> {
+    if (fs.existsSync(MIGRATE_DB)) fs.unlinkSync(MIGRATE_DB);
+    const SQL = await initSqlJs();
+    const old = new SQL.Database();
+    old.run(`CREATE TABLE edges (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      relation TEXT NOT NULL ${OLD_CHECK},
+      confidence REAL NOT NULL DEFAULT 0.5,
+      evidence TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+    old.run(`INSERT INTO edges (id, source_id, target_id, relation) VALUES ('e1', 'n1', 'n2', 'supports')`);
+    saveDatabase(old, MIGRATE_DB);
+    old.close();
+    return initDatabase(MIGRATE_DB);
+  }
+
+  it("keeps legacy data and accepts new relation enums after migration", async () => {
+    const migrated = await buildOldSchemaDb();
+    try {
+      // 新枚举关系可写入（旧 CHECK 会拒绝，迁移后必须通过）
+      migrated.run(
+        `INSERT INTO edges (id, source_id, target_id, relation) VALUES ('e2', 'n1', 'n3', 'influences')`,
+      );
+      // 旧数据保留
+      const rows = migrated.exec(`SELECT relation FROM edges WHERE id = 'e1'`);
+      assert.equal(rows[0].values[0][0], "supports");
+      const count = migrated.exec(`SELECT COUNT(*) FROM edges`);
+      assert.equal(count[0].values[0][0], 2);
+      // 索引已重建（迁移时 DROP TABLE 会连带删除）
+      const idx = migrated.exec(
+        `SELECT name FROM sqlite_master WHERE type='index' AND name IN ('idx_edges_source','idx_edges_target')`,
+      );
+      assert.equal(idx[0].values.length, 2);
+    } finally {
+      migrated.close();
+      if (fs.existsSync(MIGRATE_DB)) fs.unlinkSync(MIGRATE_DB);
+    }
+  });
+
+  it("is a no-op for databases already on the new schema", async () => {
+    const fresh = await initDatabase(MIGRATE_DB);
+    try {
+      fresh.run(
+        `INSERT INTO edges (id, source_id, target_id, relation) VALUES ('e3', 'n1', 'n2', 'enables')`,
+      );
+      assert.equal(fresh.exec(`SELECT COUNT(*) FROM edges`)[0].values[0][0], 1);
+    } finally {
+      fresh.close();
+      if (fs.existsSync(MIGRATE_DB)) fs.unlinkSync(MIGRATE_DB);
+    }
   });
 });

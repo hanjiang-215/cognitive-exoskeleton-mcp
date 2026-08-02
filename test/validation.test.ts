@@ -40,12 +40,35 @@ describe("ExtractionResultSchema", () => {
     assert.ok(!r.success);
   });
 
-  it("rejects invalid relation type (would violate DB CHECK constraint)", () => {
+  it("normalizes unknown relation to related_to (lenient, no whole-ingest failure)", () => {
     const r = ExtractionResultSchema.safeParse({
       nodes: [],
-      edges: [{ source: "A", target: "B", relation: "bogus" }],
+      edges: [{ source: "A", target: "B", relation: "gives_birth_to" }],
     });
-    assert.ok(!r.success);
+    assert.ok(r.success);
+    assert.equal(r.data.edges[0].relation, "related_to");
+  });
+
+  it("maps relation synonyms to canonical values", () => {
+    const cases: Array<[string, string]> = [
+      ["cites", "references"],
+      ["derives_from", "evolves_from"],
+      ["contains", "related_to"], // 反向关系保守降级
+      ["implies", "supports"],
+      ["refutes", "contradicts"],
+      ["correlates_with", "co_occurs"],
+      ["导致", "causes"],
+      ["使用", "uses"],
+      ["是一种", "instance_of"],
+    ];
+    for (const [raw, expected] of cases) {
+      const r = ExtractionResultSchema.safeParse({
+        nodes: [],
+        edges: [{ source: "A", target: "B", relation: raw }],
+      });
+      assert.ok(r.success, `relation "${raw}" should parse`);
+      assert.equal(r.data.edges[0].relation, expected, `relation "${raw}" -> ${expected}`);
+    }
   });
 
   it("rejects empty node name", () => {
@@ -67,7 +90,7 @@ describe("ExtractionResultSchema", () => {
   it("describeExtractionIssues returns a readable summary", () => {
     const r = ExtractionResultSchema.safeParse({
       nodes: [{ type: "bogus", name: "" }],
-      edges: [{ source: "A", target: "B", relation: "nope" }],
+      edges: [{ source: "", target: "B", relation: "related_to" }],
     });
     assert.ok(!r.success);
     const summary = describeExtractionIssues(r);

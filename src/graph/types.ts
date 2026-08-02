@@ -20,7 +20,14 @@ export interface GraphNode {
 
 // --- Edge types ---
 
+/**
+ * 关系枚举（17 种）。
+ *
+ * 选择原则：语义正交、方向不重复（反向关系走映射而非新词）、
+ * LLM 可稳定区分、契合知识图谱/灵感产品定位。
+ */
 export type RelationType =
+  // 原有 8 种
   | "supports"
   | "contradicts"
   | "evolves_from"
@@ -28,7 +35,46 @@ export type RelationType =
   | "related_to"
   | "co_occurs"
   | "part_of"
-  | "instance_of";
+  | "instance_of"
+  // 新增 9 种：因果/功能
+  | "causes"
+  | "enables"
+  | "requires"
+  | "uses"
+  | "implements"
+  // 结构/层次
+  | "specializes"
+  // 时序
+  | "replaces"
+  // 来源/启发
+  | "inspires"
+  | "influences";
+
+/** 合法关系枚举常量（供 schema CHECK、zod 校验、prompt 共用）。 */
+export const RELATION_TYPES: readonly RelationType[] = [
+  "supports",
+  "contradicts",
+  "evolves_from",
+  "references",
+  "related_to",
+  "co_occurs",
+  "part_of",
+  "instance_of",
+  "causes",
+  "enables",
+  "requires",
+  "uses",
+  "implements",
+  "specializes",
+  "replaces",
+  "inspires",
+  "influences",
+] as const;
+
+/** 判断字符串是否为合法关系枚举值。 */
+export function isRelationType(value: string): value is RelationType {
+  return (RELATION_TYPES as readonly string[]).includes(value);
+}
 
 export interface GraphEdge {
   id: string;
