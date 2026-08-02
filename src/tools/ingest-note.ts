@@ -13,6 +13,7 @@ import { EXTRACT_SYSTEM_PROMPT, buildExtractUserPrompt } from "../prompts/extrac
 import { ingestExtraction, isNoteChanged, addEvolutionEntry, getNodeByNameAndDomain, getGraphStats } from "../graph/store.js";
 import { saveDatabase } from "../graph/schema.js";
 import { ExtractionResultSchema, describeExtractionIssues } from "../graph/extraction-schema.js";
+import { estimateExtractMaxTokens } from "../text.js";
 import { guard } from "./guard.js";
 
 export function registerIngestNoteTool(
@@ -53,11 +54,13 @@ export function registerIngestNoteTool(
       }
 
       // 3. Call LLM for extraction
+      // 输出预算按笔记长度动态估算，避免长笔记在固定 4096 token 处被截断。
+      const maxTokens = estimateExtractMaxTokens(text.length);
       const rawExtraction = await llm.chatJSON({
         system: EXTRACT_SYSTEM_PROMPT,
         user: buildExtractUserPrompt(text),
         temperature: 0.3,
-        maxTokens: 4096,
+        maxTokens,
       });
 
       // 3.1. Validate LLM output — 非法枚举值会导致 DB CHECK 约束抛错，

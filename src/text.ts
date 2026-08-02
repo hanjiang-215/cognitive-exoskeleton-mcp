@@ -28,3 +28,15 @@ export function extractKeywords(text: string, minLen = 2, maxKeywords = 20): str
   }
   return out;
 }
+
+/**
+ * 估算抽取任务的输出 token 预算（按笔记字符数）。
+ *
+ * 依据：中文约 1 token/字、英文约 3.5 字符/token；实体/关系数量与笔记
+ * 长度大致线性相关，输出预算留 2 倍余量。下限 4096 保证小笔记也有足够
+ * 预算，上限 16384 匹配主流模型单次输出上限，避免超长文本申请过大预算。
+ */
+export function estimateExtractMaxTokens(textLength: number): number {
+  const estimatedTokens = Math.ceil(textLength / 3.5);
+  return Math.min(16384, Math.max(4096, estimatedTokens * 2 + 1024));
+}

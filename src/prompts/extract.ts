@@ -51,6 +51,8 @@ Guidelines:
 - Create edges for any meaningful relationship between entities.
 - If the text expresses a relationship not listed above, pick the CLOSEST value from the list (prefer "related_to" when unsure). NEVER invent a new relation string.
 - Set confidence based on how explicitly the relationship is stated.
+- Keep "evidence" concise: a brief quote or paraphrase of at most 12 words per edge.
+- For very long texts, prioritize the most important entities and extract at most 40 nodes.
 - If the text is short or trivial, return minimal extraction.
 - Do NOT invent entities or relationships not present in the text.`;
 
