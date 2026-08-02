@@ -283,9 +283,16 @@ serendipity_log (id, node_a, node_b, hypothesis, user_feedback, created_at)
 
 **当前版本：v1.0.0**
 
-| 版本 | 日期 | 主要内容 |
-| --- | --- | --- |
-| **v1.0.0** | 2026-03 | 首个正式版本 |
+| 版本 | 日期 | 主要变更 | 提交 |
+| --- | --- | --- | --- |
+| **v1.0.0** | 2026-08-02 | 正式版：节点别名（aliases）多语言检索 + README 面向非程序员重写 | `fa35e04` |
+| v0.5.0 | 2026-08-02 | 修复：长笔记抽取 JSON 截断自动恢复（括号补全 + 动态 token 预算） | `fa89a6d` |
+| v0.4.0 | 2026-08-02 | 关系枚举扩展至 17 种 + 同义词归一化 + 未知关系宽容降级 | `79e77eb` |
+| v0.3.0 | 2026-08-02 | 加固：中文关键词检索（Unicode）、LLM 输出 zod 校验、工具错误兜底、原子 DB 写 | `1ae622c` |
+| v0.2.0 | 2026-07-31 | LLM 双模式（Sampling/Direct），默认零配置 | `471a738` |
+| v0.1.0 | 2026-07-31 | 初始版本：8 个 MCP 工具 + 本地 SQLite 知识图谱 | `3038de5` |
+
+> **升级说明**：v0.x 用户直接使用新版即可——数据库启动时自动迁移（edges 关系枚举重建、nodes 补 aliases 列），无需手动操作。
 
 **v1.0.0 包含的能力**：
 
@@ -295,18 +302,6 @@ serendipity_log (id, node_a, node_b, hypothesis, user_feedback, created_at)
 - **中文支持**：中文关键词提取（Unicode 属性）、中文关系动词映射（导致→causes 等）、实体名保留原文语言
 - **健壮性**：LLM 输出 zod 校验（宽容解析）、长笔记输出截断自动修复（括号补全 + 动态 token 预算）、工具级错误兜底、数据库原子写入
 - **存储**：SQLite 纯本地（sql.js / WASM，零原生依赖）、无第三方网络请求
-
-**变更历史**（git 提交记录）：
-
-| 提交 | 说明 |
-| --- | --- |
-| `3038de5` | 初始版本 |
-| `6c23ff1` | 文档与 .gitignore 完善 |
-| `471a738` | 新增 LLM 双模式（Sampling/Direct），默认零配置 |
-| `1ae622c` | 检索/校验/持久化加固（中文检索、zod 校验、错误兜底） |
-| `79e77eb` | 关系枚举扩展至 17 种 + 同义词归一化 |
-| `fa89a6d` | 截断 JSON 自动修复 + 动态 token 预算 |
-| 待发布 | 节点别名（aliases）多语言检索 |
 
 ---
 
@@ -526,14 +521,18 @@ serendipity_log (id, node_a, node_b, hypothesis, user_feedback, created_at)
 
 ### Version
 
-**Current: v1.0.0** (2026-03) — first official release:
+**Current: v1.0.0** (2026-08-02)
 
-- 8 MCP tools (ingest / query / recall / discover / blindspots / topology / evolution / serendipity)
-- Dual-mode LLM: zero-config Sampling + Direct (OpenAI-compatible API)
-- 17 relation enums with synonym normalization; node aliases for multilingual retrieval; auto schema migration
-- Chinese support: Unicode keyword extraction, Chinese relation verbs, original-language entity naming
-- Robustness: zod validation, truncated-JSON auto-repair with dynamic token budget, tool error guard, atomic DB writes
-- Local SQLite storage (sql.js/WASM), zero native deps
+| Version | Date | Highlights |
+| --- | --- | --- |
+| **v1.0.0** | 2026-08-02 | Node aliases for multilingual retrieval; README rewritten for non-programmers |
+| v0.5.0 | 2026-08-02 | Fix: truncated-JSON auto-repair + dynamic token budget |
+| v0.4.0 | 2026-08-02 | 17 relation enums with synonym normalization + graceful degradation |
+| v0.3.0 | 2026-08-02 | Hardening: Unicode Chinese search, zod validation, error guard, atomic DB writes |
+| v0.2.0 | 2026-07-31 | Dual-mode LLM (Sampling/Direct), zero-config default |
+| v0.1.0 | 2026-07-31 | Initial release: 8 tools + local SQLite knowledge graph |
+
+> Upgrading from v0.x? The database migrates automatically on startup (edges relation CHECK rebuild, nodes aliases column) — no manual steps needed.
 
 ### Development
 
